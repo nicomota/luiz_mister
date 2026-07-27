@@ -6,17 +6,19 @@ reveladas conforme a rolagem afasta a câmera.
 
 ## Como abrir
 
-Abra `apresentacao.html` no navegador. Não há build, dependências instaladas
-nem servidor obrigatório — as bibliotecas são zero e as fontes vêm de CDN com
+Abra `index.html` no navegador. Não há build, dependências instaladas nem
+servidor obrigatório — as bibliotecas são zero e as fontes vêm de CDN com
 fallback para as do sistema.
 
-Para publicar, basta servir a pasta como site estático (GitHub Pages, Netlify,
-Vercel ou qualquer servidor de arquivos).
+Publicado em: https://nicomota.github.io/luiz_mister/
+
+Para hospedar em outro lugar, basta servir a pasta como site estático
+(Netlify, Vercel ou qualquer servidor de arquivos).
 
 ## Estrutura
 
 ```
-apresentacao.html   toda a página: estilos, shader e animação
+index.html          toda a página: estilos, shader e animação
 logo.png            logo exibida dentro da esfera central
 img/                logos dos buscadores de notas e das instituições financeiras
 img/erp/            logos dos sistemas contábeis
