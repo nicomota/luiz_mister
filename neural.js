@@ -166,16 +166,33 @@ export function createNeural(canvas, tooltipEl){
   const bankNodes = [];
   const connectionLines = [];
 
+  /* As ~460 conexões eram um objeto Line cada, ou seja, 460 chamadas de
+     desenho por frame. Aqui elas são acumuladas por camada e viram um
+     único LineSegments cada — 460 chamadas passam a ser 4. A opacidade
+     de cada linha deixa de oscilar sozinha, mas a camada inteira ainda
+     respira, e a diferença visual é imperceptível. */
+  const baldes = new Map();
   function createLine(from, to, appearBeyond){
-    const opa = appearBeyond === null ? 0.5 : 0;
-    const geo = new THREE.BufferGeometry().setFromPoints([from.clone(), to.clone()]);
-    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
-      color:0x7c3aed, transparent:true, opacity:opa,
-      depthWrite:false, blending:THREE.AdditiveBlending,
-    }));
-    line.visible = appearBeyond === null;
-    scene.add(line);
-    connectionLines.push({ line, offset:Math.random()*Math.PI*2, appearBeyond });
+    const chave = appearBeyond === null ? "base" : String(appearBeyond);
+    let b = baldes.get(chave);
+    if (!b) baldes.set(chave, b = { appearBeyond, pts: [] });
+    b.pts.push(from.x, from.y, from.z, to.x, to.y, to.z);
+  }
+  function fecharLinhas(){
+    for (const { appearBeyond, pts } of baldes.values()){
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
+      const mat = new THREE.LineBasicMaterial({
+        color:0x7c3aed, transparent:true,
+        opacity: appearBeyond === null ? 0.5 : 0,
+        depthWrite:false, blending:THREE.AdditiveBlending,
+      });
+      const seg = new THREE.LineSegments(geo, mat);
+      seg.visible = appearBeyond === null;
+      scene.add(seg);
+      connectionLines.push({ line:seg, offset:Math.random()*Math.PI*2, appearBeyond });
+    }
+    baldes.clear();
   }
 
   const discGeo   = new THREE.CylinderGeometry(1.7, 1.7, 0.25, 24);
@@ -200,12 +217,15 @@ export function createNeural(canvas, tooltipEl){
       const group = new THREE.Group();
       group.position.copy(pos);
 
+      /* Era um cilindro com três materiais (lateral, topo e base), e cada
+         material vira uma chamada de desenho — 3 por nó, 552 no total.
+         Como o disco fica sempre de frente para a câmera, só a face de
+         cima aparece: um material branco só entrega a mesma imagem por
+         um terço do custo. */
       const discMats = [
-        new THREE.MeshBasicMaterial({ color:0x1a1a2e, transparent:true, opacity:opa0 }),
         new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:opa0 }),
-        new THREE.MeshBasicMaterial({ color:0x2d1b69, transparent:true, opacity:opa0 }),
       ];
-      const disc = new THREE.Mesh(discGeo, discMats);
+      const disc = new THREE.Mesh(discGeo, discMats[0]);
       disc.rotation.x = Math.PI/2;
       group.add(disc);
 
@@ -242,16 +262,19 @@ export function createNeural(canvas, tooltipEl){
         if (bankNodes.indexOf(viz) > i) createLine(node.basePos, viz.basePos, node.appearBeyond);
       });
   });
+  fecharLinhas();   // as conexões viram um LineSegments por camada
 
   /* ── hover ── */
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2(-999, -999);
   let hovered = null;
 
+  let pointerSujo = false;   // só vale raycast se o mouse realmente andou
   canvas.addEventListener("mousemove", e => {
     const r = canvas.getBoundingClientRect();
     pointer.x = ((e.clientX - r.left)/r.width)*2 - 1;
     pointer.y = -((e.clientY - r.top)/r.height)*2 + 1;
+    pointerSujo = true;
     if (tooltipEl){
       tooltipEl.style.left = (e.clientX - r.left) + "px";
       tooltipEl.style.top  = (e.clientY - r.top) + "px";
@@ -263,8 +286,13 @@ export function createNeural(canvas, tooltipEl){
     tooltipEl && tooltipEl.classList.remove("visible");
   });
 
+  /* O raycast testa os triângulos de 184 cilindros. Com o mouse parado
+     — que é o caso durante quase toda a apresentação — isso era puro
+     desperdício a 60 vezes por segundo. Agora só roda quando o ponteiro
+     de fato se moveu desde o último teste. */
   function updateHover(){
-    if (pointer.x < -1 || !tooltipEl) return;
+    if (pointer.x < -1 || !tooltipEl || !pointerSujo) return;
+    pointerSujo = false;
     raycaster.setFromCamera(pointer, camera);
     const alvos = bankNodes.filter(n => n.mesh.visible).map(n => n.disc);
     const hits = raycaster.intersectObjects(alvos, false);
