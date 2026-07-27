@@ -1,0 +1,1911 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ecossistema — Apresentação</title>
+
+<!-- Fontes via CDN. Se a rede bloquear, a pilha de fallback assume e a
+     página continua idêntica em estrutura — só muda o desenho da letra. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+
+<style>
+  /* Paleta derivada do próprio shader de abertura: brasas quentes perto do
+     núcleo, azul (#4d99e6, o mesmo do "mix" final do shader) ao se afastar. */
+  :root{
+    --bg:#050a18;
+    --ink:#e9edff;
+    --muted:#8795bd;
+    --c1:#ff9d5c;   /* buscadores    — brasa   */
+    --c2:#ffcf8a;   /* reserva       — dourado */
+    --c3:#8fd8ff;   /* notas fiscais — gelo    */
+    --c4:#4d99e6;   /* processamento — azul do shader */
+    --c5:#9fb2e8;   /* consumo       — pervinca */
+    --c6:#6d7ea8;   /* externo       — ardósia  */
+    --accent:#8fd8ff;
+    --font-body:"Inter","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    --font-display:"Space Grotesk","Inter","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:#000; color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  canvas{position:fixed; inset:0; width:100%; height:100%; display:block}
+  canvas#warp{z-index:0}
+  canvas#scene{z-index:1}
+
+  .vignette{
+    position:fixed; inset:0; z-index:2; pointer-events:none;
+    background:radial-gradient(125% 95% at 50% 45%, transparent 40%, rgba(3,6,16,.82) 100%);
+  }
+
+  /* ---------- overlay de texto ---------- */
+  .overlay{position:fixed; inset:0; z-index:3; pointer-events:none}
+  .panel{position:absolute; opacity:0; will-change:opacity,transform; max-width:520px}
+
+  /* Véu atrás do texto: escurece e desfoca o céu só onde há leitura,
+     com borda esfumada para não virar uma caixa colada na tela.
+     A máscara é o que impede o desfoque de terminar num corte reto. */
+  .panel::before{
+    content:""; position:absolute; z-index:-1; pointer-events:none;
+    inset:-46px -60px -52px -60px;
+    border-radius:40px;
+    background:radial-gradient(118% 102% at 50% 50%,
+      rgba(1,3,9,.985) 0%, rgba(1,3,9,.96) 52%,
+      rgba(1,3,9,.72) 76%, rgba(1,3,9,0) 100%);
+    backdrop-filter:blur(13px) saturate(.7) brightness(.55);
+    -webkit-backdrop-filter:blur(13px) saturate(.7) brightness(.55);
+    -webkit-mask-image:radial-gradient(118% 102% at 50% 50%,
+      #000 0%, #000 52%, rgba(0,0,0,.7) 76%, transparent 100%);
+    mask-image:radial-gradient(118% 102% at 50% 50%,
+      #000 0%, #000 52%, rgba(0,0,0,.7) 76%, transparent 100%);
+  }
+  .panel.hero::before{ inset:-40px -70px -46px -70px }
+  .panel{ right:6vw; top:50%; transform:translateY(-50%) }
+  .panel.center{ left:50%; right:auto; top:50%; transform:translate(-50%,-50%); text-align:center; max-width:780px }
+  .panel.left{ left:6vw; right:auto }
+  .panel.hero{ left:50%; right:auto; top:auto; bottom:9vh; transform:translateX(-50%); text-align:center; max-width:860px }
+
+  .kicker{
+    font-size:12px; letter-spacing:.28em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .panel.center .kicker,.panel.hero .kicker{justify-content:center}
+  .kicker::before{content:""; width:26px; height:1px; background:currentColor; opacity:.6}
+  .panel.center .kicker::before,.panel.hero .kicker::before{display:none}
+
+  h1{
+    font-family:var(--font-display);
+    font-size:clamp(32px,5.6vw,68px); line-height:1.03; margin:0 0 16px;
+    font-weight:700; letter-spacing:-.03em;
+    background:linear-gradient(180deg,#fff 18%,#9fb2e8 120%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  h2{font-family:var(--font-display); font-size:clamp(26px,3.4vw,42px); line-height:1.08;
+     margin:0 0 16px; font-weight:600; letter-spacing:-.022em}
+  p{font-size:clamp(14px,1.15vw,17px); line-height:1.65; color:#b9c3e6; margin:0 0 14px}
+  .dim{color:var(--muted)}
+
+  ul.items{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:10px}
+  ul.items li{
+    display:flex; gap:12px; align-items:flex-start;
+    padding:12px 14px; border-radius:12px;
+    background:rgba(16,26,52,.55); border:1px solid rgba(140,160,230,.16);
+    backdrop-filter:blur(10px); font-size:14.5px; line-height:1.45;
+  }
+  ul.items li b{display:block; font-weight:600; margin-bottom:2px}
+  ul.items li span{color:var(--muted); font-size:13px}
+  .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:0 0 auto;box-shadow:0 0 12px currentColor;background:currentColor}
+
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:26px}
+  .metric{padding:18px 16px; border-radius:14px; background:rgba(16,26,52,.55); border:1px solid rgba(140,160,230,.16); backdrop-filter:blur(10px)}
+  .metric .v{font-size:clamp(24px,3vw,36px); font-weight:650; letter-spacing:-.02em}
+  .metric .l{font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-top:6px}
+
+  .steps{display:grid; gap:12px; margin-top:24px; text-align:left}
+  .step{display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:baseline;
+    padding:14px 16px; border-radius:12px; background:rgba(16,26,52,.55);
+    border:1px solid rgba(140,160,230,.16); backdrop-filter:blur(10px)}
+  .step .n{font-variant-numeric:tabular-nums; color:var(--accent); font-weight:650; font-size:13px; letter-spacing:.1em}
+  .step b{display:block; margin-bottom:3px; font-weight:600}
+  .step span{color:var(--muted); font-size:13.5px; line-height:1.5}
+
+  /* ---------- HUD ---------- */
+  .hud{position:fixed; z-index:5; pointer-events:none; color:var(--muted); opacity:0}
+  .brand{top:26px; left:28px; font-size:12px; letter-spacing:.24em; text-transform:uppercase}
+  .brand b{color:var(--ink); font-weight:600}
+  .scale-readout{bottom:26px; left:28px; font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-variant-numeric:tabular-nums}
+  .hint{bottom:26px; left:50%; transform:translateX(-50%); text-align:center;
+    font-size:11px; letter-spacing:.22em; text-transform:uppercase}
+  .hint .arrow{display:block; margin:8px auto 0; width:1px; height:26px;
+    background:linear-gradient(180deg,transparent,var(--muted)); animation:drop 1.9s ease-in-out infinite}
+  @keyframes drop{0%,100%{opacity:.25;transform:translateY(-4px)}50%{opacity:1;transform:translateY(4px)}}
+
+  .rail{position:fixed; right:26px; top:50%; transform:translateY(-50%); z-index:5; display:grid; gap:12px; opacity:0; transition:opacity .6s ease}
+  .rail button{-webkit-appearance:none; appearance:none; border:0; padding:0; cursor:pointer;
+    width:9px; height:9px; border-radius:50%; background:rgba(160,175,230,.22); transition:all .3s ease}
+  .rail button.on{background:var(--accent); box-shadow:0 0 14px var(--accent); transform:scale(1.25)}
+  .rail button:hover{background:rgba(160,175,230,.5)}
+
+  .bar{position:fixed; left:0; top:0; height:2px; z-index:6;
+    background:linear-gradient(90deg,var(--c1),var(--c3),var(--c4)); width:0%}
+
+  .skip{
+    position:fixed; z-index:7; right:26px; bottom:24px;
+    font:500 11px/1 var(--font-body); letter-spacing:.18em; text-transform:uppercase;
+    color:var(--muted); background:rgba(8,12,28,.35); border:1px solid rgba(140,160,230,.22);
+    padding:9px 14px; border-radius:999px; cursor:pointer; transition:all .3s ease;
+    backdrop-filter:blur(6px);
+  }
+  .skip:hover{color:var(--ink); border-color:rgba(140,160,230,.5)}
+
+  @media (max-width:900px){
+    .panel, .panel.left{ left:5vw; right:5vw; max-width:none; top:auto; bottom:8vh; transform:none }
+    .panel.center{ left:5vw; right:5vw; transform:none; bottom:8vh; top:auto }
+    .panel.hero{ left:5vw; right:5vw; transform:none; bottom:8vh }
+    .metrics{gap:8px}
+    .metric{padding:12px 10px}
+    .rail{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SHADER DE ABERTURA — "Warp Speed"
+     Autor original: Matthias Hurrle (@atzedent)
+     https://codepen.io/atzedent/pen/mdgZyjZ
+     Alterações desta apresentação estão marcadas com [MOD].
+     ══════════════════════════════════════════════════════════════ -->
+<script type="x-shader/x-fragment" id="frag">#version 300 es
+/*********
+* made by Matthias Hurrle (@atzedent)
+*/
+precision highp float;
+out vec4 O;
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 touch;
+uniform int pointerCount;
+uniform float flow;    // [MOD] distância percorrida — controla o starfield
+uniform float settle;  // [MOD] 0 = viajando · 1 = parado no centro
+#define mouse (touch/R)
+#define P pointerCount
+#define FC gl_FragCoord.xy
+#define R resolution
+#define T time
+#define S smoothstep
+#define rot(a) mat2(cos(a-vec4(0,11,33,0)))
+float map(vec3 p) { return length(p)-1.; }
+vec3 stars(vec2 uv) {
+	vec3 col=vec3(0),
+	ro=vec3(.2+sin(T*.2)*.1,1,flow),   // [MOD] era T*.1 — velocidade agora vem do JS
+	rd=vec3(uv,.2);
+	float d=.0, e=.0;
+	for (int i=0; i<40; i++) {
+		vec3 p=ro+rd*d;
+		p.z=fract(p.z);
+		for (int j=0; j<10; j++) {
+			p=abs(p)/dot(p,p*.5)-.8;
+		}
+		e+=(1.-e)*dot(p,p)*.002;
+		// [MOD] a cor original era vec3(e*.8,.5-d,d*.5) — vermelho dominante.
+		// Agora percorre a paleta da página: brasa (#ff9d5c) perto,
+		// gelo (#8fd8ff) longe. Mesma estrutura de brilho.
+		col+=mix(vec3(1.,.615,.36),vec3(.56,.847,1.),clamp(d*3.2,.0,1.))*(e*.6+.34)*e*.052;
+		d+=.01;
+	}
+
+	return col;
+}
+void cam(inout vec3 p) {
+	if (P>0) {
+		p.yz*=rot(-mouse.y*3.14+1.57);
+		p.xz*=rot(1.57-mouse.x*3.14);
+	} else {
+		p.xz*=rot(sin(T*.125)*.75);
+	}
+}
+void main() {
+	vec2 uv=(FC-.5*R)/min(R.x,R.y);
+	float t=sin(T*.5)*.2;
+	vec3 col=vec3(0),
+	// [MOD] posição em viagem -> posição de repouso, interpolada por "settle".
+	// z=-7.6 deixa a esfera do mesmo tamanho do núcleo 3D no handoff.
+	p=mix(vec3(sin(T+t),cos(T+t),exp(1.)+exp(cos(T+t))*1.5-12.), vec3(0,0,-7.6), settle),
+	rd=normalize(vec3(uv,1.));
+	cam(p); cam(rd);
+	for (float i=.0; i<400.; i++) {
+		float d=map(p);
+		if (d<1e-3) {
+			vec2 e=vec2(1e-3,0);
+			vec3 n=normalize(map(p)-vec3(map(p+e.xyy),map(p+e.yxy),map(p+e.yyx)));
+			rd=reflect(rd,n);
+			d=3e-1;
+		}
+		if (d>12.) {
+			col=stars(rd.xy);
+			break;
+		}
+		p+=rd*d;
+	}
+	col=mix(col,vec3(.3,.6,.9),pow(abs(rd.y),1.4));
+	O=vec4(col,1);
+}</script>
+
+<canvas id="warp"></canvas>
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+
+<div class="overlay" id="overlay">
+
+  <!-- ============ 0 · ABERTURA ============
+       Sem texto: a abertura é só a esfera com a logo dentro.
+       Para trazer um título de volta, crie aqui uma section com as
+       classes "panel hero" e os atributos data-from="0.00" data-to="0.10".
+       O estilo .panel.hero continua no CSS, pronto para uso. -->
+
+  <!-- ============ 1 · AS FONTES ============ -->
+  <section class="panel" data-from="0.10" data-to="0.26">
+    <p class="kicker">Camada 1 · Entrada</p>
+    <h2>Buscadores de Notas</h2>
+    <p>Está pronto para simplificar ainda mais sua contabilidade? Ativar a integração de buscadores de notas no Mister Contador é essencial para uma gestão eficiente das suas notas fiscais. Neste artigo, vamos mostrar como realizar esse processo de forma descomplicada e ágil.</p>
+    <ul class="items">
+      <li><i class="dot" style="color:var(--c1)"></i><div><b>Notas fiscais</b><span>NF-e, NFS-e, CT-e e NFC-e — os documentos que alimentam o núcleo.</span></div></li>
+      <li><i class="dot" style="color:var(--c3)"></i><div><b>Buscadores de notas</b><span>SIEG, NOTALIZE, CONTABIT, GESTOR e JETTAX — captura automática!</span></div></li>
+    </ul>
+  </section>
+
+  <!-- ============ 2 · INTEGRAÇÃO BANCÁRIA ============ -->
+  <section class="panel" data-from="0.26" data-to="0.44">
+    <p class="kicker">Camada 2 · Integração bancária</p>
+    <h2>Open Finance conectado ao Mister Contador</h2>
+    <p>Com o consentimento do cliente, as movimentações chegam direto da instituição financeira — sem arquivo OFX, sem planilha, sem espera pelo fechamento do mês.</p>
+    <ul class="items">
+      <li><i class="dot" style="color:var(--c4)"></i><div><b>Conexão autorizada</b><span>O cliente autoriza uma vez e o vínculo se renova sem retrabalho.</span></div></li>
+      <li><i class="dot" style="color:var(--c4)"></i><div><b>Movimentações em tempo real</b><span>Cada lançamento chega assim que acontece na conta.</span></div></li>
+      <li><i class="dot" style="color:var(--c4)"></i><div><b>Conciliação automática</b><span>O que o banco informa encontra sozinho a nota correspondente.</span></div></li>
+    </ul>
+  </section>
+
+  <!-- ============ 3 · QUEM CONSOME ============ -->
+  <section class="panel" data-from="0.44" data-to="0.62">
+    <p class="kicker">Camada 3 · Sistemas contábeis</p>
+    <h2>Conectado a quem você já usa</h2>
+    <p>Nada de trocar de sistema. O plano de contas é lido direto do seu contábil, e o lançamento volta classificado do jeito que ele espera.</p>
+    <ul class="items">
+      <li><i class="dot" style="color:var(--c5)"></i><div><b>24 integrações</b><span>Domínio, Fortes, Alterdata, Questor, Contmatic, Nasajon e mais.</span></div></li>
+      <li><i class="dot" style="color:var(--c5)"></i><div><b>Plano de contas</b><span>O de‑para vem do próprio sistema — sem recadastrar conta nenhuma.</span></div></li>
+      <li><i class="dot" style="color:var(--c5)"></i><div><b>Balancete</b><span>No SCI, nas versões Visual e Único, o balancete chega pronto.</span></div></li>
+    </ul>
+  </section>
+
+  <!-- ============ 4 · NÚMEROS ============ -->
+  <section class="panel center" data-from="0.62" data-to="0.78">
+    <p class="kicker">Resultado</p>
+    <h2>O que isso já significa</h2>
+    <div class="metrics">
+      <div class="metric"><div class="v" style="color:var(--c1)">00 mil</div><div class="l">Documentos / mês</div></div>
+      <div class="metric"><div class="v" style="color:var(--c3)">00 %</div><div class="l">Automação</div></div>
+      <div class="metric"><div class="v" style="color:var(--c4)">00 h</div><div class="l">Horas devolvidas</div></div>
+    </div>
+    <p class="dim" style="margin-top:20px">Substitua pelos números reais — cada card é um bloco <code>.metric</code>.</p>
+  </section>
+
+  <!-- ============ 5 · PRÓXIMOS PASSOS ============ -->
+  <section class="panel center" data-from="0.78" data-to="0.93">
+    <p class="kicker">A seguir</p>
+    <h2>Para onde o sistema cresce</h2>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><div><b>Título do próximo passo</b><span>Uma linha explicando o ganho concreto para a operação.</span></div></div>
+      <div class="step"><span class="n">02</span><div><b>Título do próximo passo</b><span>Uma linha explicando o ganho concreto para a operação.</span></div></div>
+      <div class="step"><span class="n">03</span><div><b>Título do próximo passo</b><span>Uma linha explicando o ganho concreto para a operação.</span></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 6 · FECHAMENTO ============ -->
+  <section class="panel center" data-from="0.93" data-to="1.01">
+    <h1 style="font-size:clamp(28px,4.6vw,56px)">Um núcleo.<br>Todo o resto orbita.</h1>
+    <p class="dim">Seu nome · Time · Data da apresentação</p>
+  </section>
+
+</div>
+
+<div class="hud brand" id="brand"><b>ECOSSISTEMA</b> &nbsp;·&nbsp; visão de arquitetura</div>
+<div class="hud scale-readout" id="readout">escala 1×</div>
+<div class="hud hint" id="hint">role para navegar<span class="arrow"></span></div>
+<nav class="rail" id="rail" aria-label="Seções"></nav>
+<div class="bar" id="bar"></div>
+<button class="skip" id="skip" type="button">Pular introdução</button>
+
+<!-- altura de rolagem: é isto que "dirige" a animação -->
+<div id="scroller" style="height:900vh"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════
+   CONFIGURAÇÃO — edite os rótulos aqui.
+   Cada "anel" é uma camada do ecossistema, com seu próprio plano
+   orbital (tilt = inclinação, node = giro do plano).
+   ══════════════════════════════════════════════════════════════ */
+/* color / color2 = as duas pontas do gradiente que percorre o anel.
+   O conjunto continua indo do quente (dentro) ao frio (fora). */
+const RINGS = [
+  /* "icons" é opcional: mesmo tamanho e ordem de "nodes". Quando existe,
+     o satélite vira um emblema circular com a imagem no lugar da esfera.
+     Se um arquivo faltar, aquele satélite volta a ser esfera colorida. */
+  { r: 200,  color:"#ff6b3d", color2:"#ffc46b", speed: 0.150, tilt: 0.00, node: 0.0, pulse:true, title:"Notas fiscais",
+    nodes:["NF-e","NFS-e","CT-e","NFC-e"] },
+  { r: 400,  color:"#8fd8ff", color2:"#3fa9ff", speed:-0.088, tilt: 0.19, node: 1.4, pulse:true, title:"Buscadores de notas",
+    iconFit:"cover",
+    nodes:["SIEG","NOTALIZE","CONTABIT","GESTOR","JETTAX"],
+    icons:["img/sieg.jpg","img/notalize.jpg","img/contabit.png","img/gestor.png","img/jettax.jpg"] },
+  { r: 1150, color:"#4d99e6", color2:"#5ff0e0", speed:-0.052, tilt: 0.27, node: 0.4, pulse:true, title:"Integração bancária · Open Finance",
+    iconFit:"contain",
+    nodes:["Itaú","Bradesco","Santander","Banco do Brasil","Caixa","Nubank","Sicredi","Sicoob",
+           "BTG Pactual","Safra","C6 Bank","BV","BMG","Banrisul","BRB","Banco do Nordeste",
+           "Banco Paulista","Sofisa","Unicred","XP","Stone","Mercado Pago","PicPay",
+           "InfinitePay","RecargaPay"],
+    icons:["img/itau-2-laranja.svg","img/bradesco.svg","img/santander.svg",
+           "img/banco-do-brasil-com-fundo.svg","img/caixa.svg","img/nubank.svg","img/sicredi.svg",
+           "img/sicoob-vector-logo.svg","img/btg.svg","img/safra.svg","img/c6bank.svg","img/bv.svg",
+           "img/bmg.svg","img/banrisul.svg","img/brb-logo.svg","img/Logo_BNB.svg",
+           "img/banco-paulista.svg","img/logo-sofisa.svg","img/unicred.svg","img/xp_bank.png",
+           "img/stone.svg","img/mercadopago.svg","img/picpay.svg","img/infinitepay.svg",
+           "img/recargapay.svg"] },
+  { r: 2450, color:"#9fb2e8", color2:"#8f7dff", speed: 0.030, tilt:-0.22, node: 2.6, pulse:false, title:"Sistemas contábeis",
+    iconFit:"contain",
+    nodes:["Domínio","Fortes","Alterdata","Questor","Questor Cloud","SCI",
+           "IOB","Contmatic","Calima","Athenas","Netspeed","Mastermaq","JB Software","Tron",
+           "Qyon","Nasajon","Contabit","Prosoft","Modulos","One Flow","WK Radar",
+           "ERP Cuca Fresca","ERP Dexion","ERP Sibrax"],
+    icons:["img/erp/dominio.png","img/erp/fortes.jpg","img/erp/alterdata.png",
+           "img/erp/questor.jpg","img/erp/questor_cloud.png","img/erp/sci.jpg",
+           "img/erp/IOB.png","img/erp/Contmatic.png","img/erp/Calima.jpg","img/erp/Athenas.jpg",
+           "img/erp/Netspeed.png","img/erp/Mastermaq.jpg","img/erp/JB_Software.jpg",
+           "img/erp/Tron.jpg","img/erp/Qyon.jpg","img/erp/Nasajon.jpg","img/erp/Contabit.png",
+           "img/erp/Prosoft.jpg","img/erp/Modulos.png","img/erp/One_Flow.png",
+           "img/erp/WK_Radar.png","img/erp/Cuca_Fresca.jpg","img/erp/Dexion.jpg",
+           "img/erp/Sibrax.png"] },
+  { r: 5000, color:"#6d7ea8", color2:"#9fb2e8", speed:-0.017, tilt: 0.12, node: 1.2, pulse:false, title:"Ecossistema externo",
+    nodes:["Bancos","Adquirentes","SEFAZ","Contabilidade","Clientes","Parceiros","Reguladores"] },
+];
+
+const CORE_LABEL = "MISTER";
+const CORE_PULSE_EVERY = 2;   // segundos entre as batidas do núcleo
+const CORE_R     = 78;        // raio da esfera central (unidades de mundo)
+const CAGE_R     = 118;       // raio da gaiola de icosaedro em volta dela
+const CAGE_OPACITY = 0.55;    // força da gaiola: 0 apaga, 1 volta ao original
+
+/* ── IMAGEM CENTRAL (logo) ──────────────────────────────────────
+   Duas formas de apontar:
+     1) "logo.png"  -> o arquivo tem que ficar na MESMA pasta do HTML.
+                       Simples, mas são dois arquivos para enviar.
+     2) "data:image/png;base64,iVBOR..."  -> embutida no próprio HTML.
+                       Um arquivo só, sobrevive a e-mail e pendrive.
+                       Gere com o comando que está no fim deste arquivo.
+   Deixe "" para não usar imagem nenhuma.                            */
+const CORE_IMAGE          = "logo.png";
+const CORE_IMAGE_SCALE    = 0.88;   // 1.0 = ocupa o diâmetro da esfera
+const CORE_IMAGE_ALPHA    = 1;
+/* "lighter" faz a logo brilhar como projeção (ideal para logo clara,
+   branca ou monocromática). "source-over" desenha a logo como ela é,
+   com as cores originais — use para logo colorida.                  */
+const CORE_IMAGE_BLEND    = "lighter";
+/* 0 a 1 — disco escuro atrás da logo, para ela não competir com o
+   reflexo da esfera, que é bem movimentado.                          */
+const CORE_IMAGE_BACKDROP = 0.45;
+/* true = a logo substitui a esfera (fica só a logo dentro da gaiola) */
+const CORE_IMAGE_SOLO     = false;
+
+/* --- ritmo da introdução (segundos) — para encurtar, baixe todos --- */
+const T_WARP    = 3.0;
+const T_BRAKE   = 5.2;
+const T_HANDOFF = 5.4;
+const T_BUILD   = 8.8;
+const T_UI      = 9.4;
+
+/* Zoom: em cada ponto da rolagem, qual raio deve caber na tela. */
+const ZOOM_KEYS = [
+  [0.00,  430], [0.09,  430],
+  [0.26,  430], [0.34, 1150],
+  [0.44, 1150], [0.52, 2450],
+  [0.62, 2450], [0.72, 5000],
+  [0.86, 5000], [1.00, 9000],
+];
+
+/* Câmera 3D
+   CAM_PITCH negativo = câmera acima do plano das órbitas, olhando para
+   baixo (o lado distante do anel sobe na tela). Positivo inverte, e a
+   cena passa a ser vista de baixo. */
+const CAM_PITCH     = -0.38;  // ~22° — abertura, quase rasante
+const CAM_PITCH_MID = -0.72;  // ~41° — camada 2, já olhando de cima
+const CAM_PITCH_FAR = -0.98;  // ~56° — camadas externas, disco quase de frente
+const CAM_AUTOYAW = 0.055;    // rad/s — giro lento e contínuo
+
+/* ══════════════════════════════════════════════════════════════ */
+const cv = document.getElementById("scene");
+const ctx = cv.getContext("2d");
+const warpCv = document.getElementById("warp");
+const bar = document.getElementById("bar");
+const hint = document.getElementById("hint");
+const brand = document.getElementById("brand");
+const readout = document.getElementById("readout");
+const railEl = document.getElementById("rail");
+const skipBtn = document.getElementById("skip");
+const panels = [...document.querySelectorAll(".panel")].map(el => ({
+  el, from:parseFloat(el.dataset.from), to:parseFloat(el.dataset.to)
+}));
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const lerp   = (a,b,t) => a + (b-a)*t;
+const clamp  = (v,a,b) => v < a ? a : v > b ? b : v;
+const smooth = t => t*t*(3-2*t);
+const ss = (a,b,t) => smooth(clamp((t-a)/(b-a), 0, 1));
+const easeOutCubic = t => 1 - Math.pow(1-t, 3);
+const TAU = Math.PI*2;
+
+let W = 0, H = 0, DPR = 1;
+
+/* ══════════════════════════════════════════════════════════════
+   Camada WebGL — renderer do pen original (enxuto: sem pointers)
+   ══════════════════════════════════════════════════════════════ */
+class Renderer {
+  #vertexSrc = "#version 300 es\nprecision highp float;\nin vec4 position;\nvoid main(){gl_Position=position;}";
+  #vertices = [-1, 1, -1, -1, 1, 1, 1, -1];
+  constructor(canvas, source){
+    this.canvas = canvas;
+    // preserveDrawingBuffer permite copiar a esfera do buffer depois do frame
+    this.gl = canvas.getContext("webgl2", {
+      antialias:false, alpha:false,
+      preserveDrawingBuffer:true,
+      powerPreference:"high-performance",
+    });
+    if (!this.gl) throw new Error("sem webgl2");
+    this.shaderSource = source;
+  }
+  compile(shader, source){
+    const gl = this.gl;
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+      throw new Error(gl.getShaderInfoLog(shader) || "erro de compilação");
+  }
+  setup(){
+    const gl = this.gl;
+    this.vs = gl.createShader(gl.VERTEX_SHADER);
+    this.fs = gl.createShader(gl.FRAGMENT_SHADER);
+    this.compile(this.vs, this.#vertexSrc);
+    this.compile(this.fs, this.shaderSource);
+    this.program = gl.createProgram();
+    gl.attachShader(this.program, this.vs);
+    gl.attachShader(this.program, this.fs);
+    gl.linkProgram(this.program);
+    if (!gl.getProgramParameter(this.program, gl.LINK_STATUS))
+      throw new Error(gl.getProgramInfoLog(this.program) || "erro de link");
+  }
+  init(){
+    const { gl, program } = this;
+    this.buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.#vertices), gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, "position");
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    this.u = {
+      resolution:   gl.getUniformLocation(program, "resolution"),
+      time:         gl.getUniformLocation(program, "time"),
+      touch:        gl.getUniformLocation(program, "touch"),
+      pointerCount: gl.getUniformLocation(program, "pointerCount"),
+      flow:         gl.getUniformLocation(program, "flow"),
+      settle:       gl.getUniformLocation(program, "settle"),
+    };
+  }
+  setSize(w, h){
+    this.canvas.width = Math.max(2, Math.round(w));
+    this.canvas.height = Math.max(2, Math.round(h));
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+  }
+  render(seconds, flow, settle){
+    const { gl, program, buffer, canvas, u } = this;
+    if (!program) return;
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.uniform2f(u.resolution, canvas.width, canvas.height);
+    gl.uniform1f(u.time, seconds);
+    gl.uniform2f(u.touch, 0, 0);
+    gl.uniform1i(u.pointerCount, 0);
+    gl.uniform1f(u.flow, flow);
+    gl.uniform1f(u.settle, settle);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  destroy(){
+    const ext = this.gl && this.gl.getExtension("WEBGL_lose_context");
+    if (ext) ext.loseContext();
+  }
+}
+
+let renderer = null, GL_ON = false, glScale = 1;
+if (!reduced){
+  try {
+    renderer = new Renderer(warpCv, document.getElementById("frag").textContent);
+    renderer.setup();
+    renderer.init();
+    GL_ON = true;
+  } catch (err){
+    console.warn("Shader indisponível, usando a introdução em canvas 2D:", err);
+    renderer = null; GL_ON = false;
+    warpCv.style.display = "none";
+  }
+} else {
+  warpCv.style.display = "none";
+}
+
+/* fixo para toda a sessão: define qual roteiro de introdução vale */
+const HAD_GL = GL_ON;
+
+/* ── a esfera do shader vira o corpo do núcleo ──
+   No repouso (settle=1, câmera em z=-7.6) ela fica centrada com raio
+   0.1328·min(W,H) px. Recortamos esse disco e passamos a desenhá-lo
+   dentro da gaiola de icosaedro — é literalmente a mesma esfera. */
+const SPHERE_UV = 0.1328;   // tan(asin(1/7.6))
+const TEX_PAD   = 1.06;
+let sphereTex = null;       // congelado — plano B
+
+/* ── esfera viva ──
+   Depois do handoff não desligamos a GPU: encolhemos o canvas do shader
+   para um quadrado pequeno, escondemos ele da tela e continuamos
+   renderizando só a esfera, usada como textura do núcleo. Custa uma
+   fração do render de tela cheia e o reflexo nunca congela. */
+const LIVE_SIZE = 512;      // resolução do render contínuo
+const LIVE_FPS  = 30;
+let liveSphere = false, liveTick = 0, liveFrames = 0, liveSum = 0;
+
+function goLiveSphere(){
+  if (!renderer || liveSphere) return;
+  captureSphere();                 // guarda o congelado antes de encolher
+  warpCv.style.display = "none";
+  renderer.setSize(LIVE_SIZE, LIVE_SIZE);
+  liveSphere = true;
+}
+
+/* desenha o corpo da esfera; devolve false se não houver fonte alguma */
+function drawCoreBody(cx, cy, R){
+  const half = R * TEX_PAD;
+  if (liveSphere && renderer){
+    const rg = SPHERE_UV * LIVE_SIZE * TEX_PAD;
+    ctx.drawImage(warpCv,
+      warpCv.width/2 - rg, warpCv.height/2 - rg, rg*2, rg*2,
+      cx - half, cy - half, half*2, half*2);
+    return true;
+  }
+  if (sphereTex){
+    ctx.drawImage(sphereTex, cx - half, cy - half, half*2, half*2);
+    return true;
+  }
+  return false;
+}
+
+function captureSphere(){
+  if (!renderer) return;
+  try{
+    const k = warpCv.width / W;
+    const rg = SPHERE_UV * Math.min(W,H) * k * TEX_PAD;
+    const size = clamp(Math.round(rg*2), 32, 1024);
+    const off = document.createElement("canvas");
+    off.width = off.height = size;
+    off.getContext("2d").drawImage(
+      warpCv,
+      warpCv.width/2 - rg, warpCv.height/2 - rg, rg*2, rg*2,
+      0, 0, size, size
+    );
+    sphereTex = off;
+  } catch (err){
+    console.warn("Não consegui capturar a esfera; usando o gradiente equivalente.", err);
+    sphereTex = null;
+  }
+}
+
+/* ── carrega a imagem central, se houver ── */
+let coreImg = null, coreCrop = null;
+if (CORE_IMAGE){
+  const im = new Image();
+  im.onload  = () => { coreImg = im; coreCrop = trimTransparent(im); };
+  im.onerror = () => console.warn(
+    "Não consegui carregar CORE_IMAGE. Se for um caminho de arquivo, " +
+    "ele precisa estar na mesma pasta deste HTML: " + CORE_IMAGE);
+  im.src = CORE_IMAGE;
+}
+
+/* Mede a margem transparente em volta da arte e devolve a caixa útil.
+   Sem isso, um PNG com muito espaço vazio desenha a logo pequena e
+   descentralizada. A varredura é feita numa miniatura de 256 px.
+   Imagem carregada de file:// "contamina" o canvas e o navegador
+   proíbe a leitura — nesse caso devolvemos null e usamos a arte inteira. */
+function trimTransparent(im){
+  try{
+    const w = im.naturalWidth, h = im.naturalHeight;
+    if (!w || !h) return null;
+    const s = Math.min(1, 256 / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w*s)), chh = Math.max(1, Math.round(h*s));
+    const c = document.createElement("canvas");
+    c.width = cw; c.height = chh;
+    const g = c.getContext("2d", { willReadFrequently:true });
+    g.drawImage(im, 0, 0, cw, chh);
+    const d = g.getImageData(0, 0, cw, chh).data;
+    let minX = cw, minY = chh, maxX = -1, maxY = -1;
+    for (let y=0;y<chh;y++) for (let x=0;x<cw;x++){
+      if (d[(y*cw + x)*4 + 3] > 12){
+        if (x<minX) minX=x; if (x>maxX) maxX=x;
+        if (y<minY) minY=y; if (y>maxY) maxY=y;
+      }
+    }
+    if (maxX < 0) return null;                     // tudo transparente
+    const pad = 1 / s;                             // 1 px da miniatura em px reais
+    return {
+      x: Math.max(0, minX/s - pad),
+      y: Math.max(0, minY/s - pad),
+      w: Math.min(w, (maxX-minX+1)/s + pad*2),
+      h: Math.min(h, (maxY-minY+1)/s + pad*2),
+    };
+  } catch (err){
+    return null;
+  }
+}
+
+/* desenha a logo recortada pelo disco da esfera */
+function drawCoreImage(cx, cy, R, alpha){
+  if (!coreImg || !coreImg.naturalWidth || alpha <= 0.004) return;
+  ctx.save();
+  // recorte: nada escapa da esfera
+  ctx.beginPath(); ctx.arc(cx, cy, R*0.995, 0, TAU); ctx.clip();
+
+  if (CORE_IMAGE_BACKDROP > 0){
+    const bd = ctx.createRadialGradient(cx,cy,0,cx,cy,R);
+    bd.addColorStop(0,   `rgba(3,7,18,${CORE_IMAGE_BACKDROP*alpha})`);
+    bd.addColorStop(0.7, `rgba(3,7,18,${CORE_IMAGE_BACKDROP*alpha*0.75})`);
+    bd.addColorStop(1,   "rgba(3,7,18,0)");
+    ctx.fillStyle = bd;
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.fill();
+  }
+
+  // usa só a área com arte, se conseguimos medi-la
+  const sx = coreCrop ? coreCrop.x : 0;
+  const sy = coreCrop ? coreCrop.y : 0;
+  const sw = coreCrop ? coreCrop.w : coreImg.naturalWidth;
+  const sh = coreCrop ? coreCrop.h : coreImg.naturalHeight;
+
+  const box = R * 2 * CORE_IMAGE_SCALE;
+  const k = Math.min(box / sw, box / sh);
+  const w = sw * k, h = sh * k;
+  ctx.globalCompositeOperation = CORE_IMAGE_BLEND;
+  ctx.globalAlpha = alpha * CORE_IMAGE_ALPHA;
+  ctx.drawImage(coreImg, sx, sy, sw, sh, cx - w/2, cy - h/2, w, h);
+  ctx.restore();
+}
+
+function stopGL(){
+  if (!renderer) return;
+  renderer.destroy();
+  renderer = null;
+  warpCv.style.display = "none";
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Geometria do icosaedro (gaiola do núcleo)
+   ══════════════════════════════════════════════════════════════ */
+const ICO = (() => {
+  const t = (1 + Math.sqrt(5)) / 2;
+  const raw = [
+    [-1, t, 0], [1, t, 0], [-1,-t, 0], [1,-t, 0],
+    [ 0,-1, t], [0, 1, t], [ 0,-1,-t], [0, 1,-t],
+    [ t, 0,-1], [t, 0, 1], [-t, 0,-1], [-t, 0, 1],
+  ];
+  const verts = raw.map(v => {
+    const L = Math.hypot(v[0], v[1], v[2]);
+    return [v[0]/L, v[1]/L, v[2]/L];
+  });
+  // aresta = as 30 menores distâncias entre pares
+  let min = Infinity;
+  for (let i=0;i<12;i++) for (let j=i+1;j<12;j++){
+    const d = Math.hypot(verts[i][0]-verts[j][0], verts[i][1]-verts[j][1], verts[i][2]-verts[j][2]);
+    if (d < min) min = d;
+  }
+  const edges = [];
+  for (let i=0;i<12;i++) for (let j=i+1;j<12;j++){
+    const d = Math.hypot(verts[i][0]-verts[j][0], verts[i][1]-verts[j][1], verts[i][2]-verts[j][2]);
+    if (d < min*1.05) edges.push([i,j]);
+  }
+  return { verts, edges };
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   Starfield 2D (fundo depois do handoff + fallback sem WebGL)
+   ══════════════════════════════════════════════════════════════ */
+/* Cores por classe espectral, com a frequência aproximada que a olho nu
+   se enxerga: dominam as brancas e amareladas, poucas azuis, poucas
+   vermelhas. Nada de pontinhos laranja-neon espalhados. */
+const STAR_CLASSES = [
+  { c:[170,196,255], w:0.09 },   // B — azul
+  { c:[202,215,255], w:0.14 },   // A — branco-azulada
+  { c:[248,247,255], w:0.25 },   // F — branca
+  { c:[255,246,235], w:0.24 },   // G — amarela (tipo Sol)
+  { c:[255,216,172], w:0.18 },   // K — alaranjada
+  { c:[255,176,128], w:0.10 },   // M — avermelhada
+];
+function pickClass(rnd){
+  let r = rnd(), acc = 0;
+  for (const k of STAR_CLASSES){ acc += k.w; if (r <= acc) return k.c; }
+  return STAR_CLASSES[2].c;
+}
+/* PRNG com semente: o céu é sempre o mesmo, não embaralha ao redimensionar */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+const ZMAX = 6;
+let stars = [];
+function newStar(z, rnd){
+  const R = rnd || Math.random;
+  // magnitude: lei de potência — muitas fracas, pouquíssimas brilhantes
+  const mag = Math.pow(R(), 3.2);
+  return {
+    x:(R()*2-1)*1.9,
+    y:(R()*2-1)*1.9,
+    z: z,
+    c: pickClass(R),
+    s: 0.35 + mag*2.6,
+    mag,
+    tw: R()*TAU,
+  };
+}
+function buildStars(){
+  // poucas e brilhantes: o grosso do céu está assado no fundo
+  const n = clamp(Math.round((W*H)/6500), 120, 420);
+  stars = new Array(n);
+  for (let i=0;i<n;i++) stars[i] = newStar(Math.random()*ZMAX);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Disco galáctico — partículas em braços espirais, no MESMO plano
+   das órbitas. Como vivem em coordenadas de mundo, a perspectiva
+   as achata num disco inclinado conforme a câmera recua.
+   ══════════════════════════════════════════════════════════════ */
+const GALAXY = {
+  count: 4200,
+  knotCount: 30,    // regiões HII — berçários de estrelas, rosados
+  rMin: 300, rMax: 6400,
+  arms: 2,
+  twist: 2.35,      // quanto o braço enrola
+  thickness: 0.05,  // espessura do disco, relativa ao raio
+  pts: [],
+};
+function buildGalaxy(){
+  const rnd = mulberry32(31415926);
+  const P = new Array(GALAXY.count);
+  for (let i=0;i<GALAXY.count;i++){
+    // densidade caindo do centro para a borda
+    const t = Math.pow(rnd(), 1.7);
+    const r = lerp(GALAXY.rMin, GALAXY.rMax, t);
+    const arm = ((rnd()*GALAXY.arms)|0) * (TAU/GALAXY.arms);
+    // dispersão em torno do braço: soma de 3 aleatórios ~ gaussiana,
+    // e mais apertada na borda, como num braço real
+    const spread = (rnd()+rnd()+rnd()-1.5) * 0.62 * (0.35 + 0.65*(1-t));
+    const a = arm + Math.log(r/GALAXY.rMin)*GALAXY.twist + spread;
+    const c = mixHex("#ffd9a0", "#9fd4ff", clamp(t*1.3, 0, 1));  // bojo dourado -> braços azuis
+    P[i] = {
+      x: Math.cos(a)*r,
+      y: (rnd()+rnd()-1) * r * GALAXY.thickness,
+      z: Math.sin(a)*r,
+      c: `rgb(${c[0]},${c[1]},${c[2]})`,
+      s: 0.4 + Math.pow(rnd(),2)*1.7,
+      a: 0.22 + rnd()*0.6,
+    };
+  }
+  GALAXY.pts = P;
+
+  /* Regiões HII: nuvens rosadas onde nascem estrelas. Ficam sobre os
+     braços, nunca no bojo — é lá que elas existem de verdade, e são o
+     detalhe que mais entrega "galáxia espiral" ao olho. */
+  const K = new Array(GALAXY.knotCount);
+  for (let i=0;i<GALAXY.knotCount;i++){
+    const t = 0.25 + rnd()*0.7;
+    const r = lerp(GALAXY.rMin, GALAXY.rMax, t);
+    const arm = ((rnd()*GALAXY.arms)|0) * (TAU/GALAXY.arms);
+    const a = arm + Math.log(r/GALAXY.rMin)*GALAXY.twist + (rnd()-0.5)*0.30;
+    K[i] = {
+      x: Math.cos(a)*r,
+      y: (rnd()+rnd()-1) * r * GALAXY.thickness * 0.6,
+      z: Math.sin(a)*r,
+      r: r * (0.035 + rnd()*0.055),
+      a: 0.20 + rnd()*0.4,
+    };
+  }
+  GALAXY.knots = K;
+}
+buildGalaxy();
+
+/* ══════════════════════════════════════════════════════════════
+   Céu profundo, desenhado UMA vez fora da tela.
+   Via láctea + nebulosas + faixas de poeira + estrelas fracas.
+   ══════════════════════════════════════════════════════════════ */
+let sky = null;
+function buildSky(){
+  if (W < 2 || H < 2) return;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const rnd = mulberry32(20260727);
+  const D = Math.hypot(W, H);
+
+  g.fillStyle = "#04060f";
+  g.fillRect(0, 0, W, H);
+
+  const blurOK = ("filter" in g);
+  if (blurOK) g.filter = "blur(" + Math.round(D*0.03) + "px)";
+
+  /* --- via láctea: faixa diagonal afastada do centro, para não
+         competir com o sistema que fica no meio da tela --- */
+  g.globalCompositeOperation = "lighter";
+  g.save();
+  g.translate(W*0.16, H*0.10);
+  g.rotate(-0.58);
+  const bw = D*1.9, bh = D*0.34;
+  const band = g.createLinearGradient(0, -bh/2, 0, bh/2);
+  band.addColorStop(0,    "rgba(38,54,104,0)");
+  band.addColorStop(0.34, "rgba(78,94,140,0.16)");
+  band.addColorStop(0.5,  "rgba(146,148,172,0.22)");
+  band.addColorStop(0.66, "rgba(78,94,140,0.16)");
+  band.addColorStop(1,    "rgba(38,54,104,0)");
+  g.fillStyle = band;
+  g.fillRect(-bw/2, -bh/2, bw, bh);
+  g.restore();
+
+  /* --- nuvens de gás --- */
+  const NEB = ["#2b5fa8", "#1f7a86", "#5c3f8f", "#8a4a2f", "#24488f", "#3b6ea8"];
+  for (let i=0;i<16;i++){
+    const col = NEB[(rnd()*NEB.length)|0];
+    const x = rnd()*W, y = rnd()*H, r = D*(0.07 + rnd()*0.20);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, hexA(col, 0.05 + rnd()*0.13));
+    gr.addColorStop(1, hexA(col, 0));
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  }
+
+  /* --- faixas de poeira: o que faz parecer foto, e não papel de parede --- */
+  g.globalCompositeOperation = "source-over";
+  for (let i=0;i<10;i++){
+    const x = rnd()*W, y = rnd()*H, r = D*(0.05 + rnd()*0.16);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(3,5,12,${0.30 + rnd()*0.35})`);
+    gr.addColorStop(1, "rgba(3,5,12,0)");
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  }
+
+  if (blurOK) g.filter = "none";
+
+  /* --- estrelas fracas: densas, nítidas, adensadas na faixa --- */
+  const n = clamp(Math.round((W*H)/620), 900, 5200);
+  const ca = Math.cos(-0.58), sa = Math.sin(-0.58);
+  for (let i=0;i<n;i++){
+    let x = rnd()*W, y = rnd()*H;
+    // 40% delas puxadas para dentro da via láctea
+    if (rnd() < 0.4){
+      const t = (rnd()-0.5)*bw, u = (rnd()-0.5)*(rnd()-0.5)*bh*1.6;
+      x = W*0.16 + t*ca - u*sa;
+      y = H*0.10 + t*sa + u*ca;
+      if (x < 0 || x > W || y < 0 || y > H) continue;
+    }
+    const mag = Math.pow(rnd(), 3.4);
+    const col = pickClass(rnd);
+    const r = 0.28 + mag*1.15;
+    g.globalAlpha = 0.18 + mag*0.72;
+    g.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  }
+  g.globalAlpha = 1;
+
+  sky = c;
+}
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  cv.style.width = W+"px"; cv.style.height = H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  buildStars();
+  buildSky();
+  resizeGL();
+}
+function resizeGL(){
+  if (!renderer) return;
+  const budget = 2.4e6;   // o shader é pesado: raymarch + fractal por pixel
+  const raw = W * H * Math.pow(Math.min(window.devicePixelRatio || 1, 2), 2);
+  const fit = Math.min(1, Math.sqrt(budget / Math.max(raw, 1)));
+  renderer.setSize(W * fit * glScale * DPR, H * fit * glScale * DPR);
+}
+
+/* ── rolagem ── */
+let pRaw = 0, p = 0, pPrev = 0, scrollVel = 0;
+let introT = 0, introSkipped = false;
+function readScroll(){
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  pRaw = max > 0 ? clamp(window.scrollY / max, 0, 1) : 0;
+  if (introT < T_BUILD && pRaw > 0.004) skipIntro();
+}
+addEventListener("scroll", readScroll, { passive:true });
+addEventListener("resize", () => { resize(); readScroll(); });
+
+/* ── parallax de mouse (gira levemente a câmera) ── */
+let mx = 0, my = 0, tmx = 0, tmy = 0;
+addEventListener("mousemove", e => {
+  tmx = (e.clientX / W - .5) * 2;
+  tmy = (e.clientY / H - .5) * 2;
+}, { passive:true });
+
+/* ── pular intro ── */
+let flow = 0;
+function skipIntro(){
+  if (introSkipped) return;
+  introSkipped = true;
+  introT = Math.max(introT, T_BUILD - 0.35);
+  skipBtn.style.display = "none";
+  if (renderer && !sphereTex){
+    renderer.render(performance.now() * 1e-3, flow, 1);
+    captureSphere();
+  }
+  goLiveSphere();   // quem pula a intro também fica com a esfera viva
+}
+skipBtn.addEventListener("click", () => {
+  skipIntro();
+  window.scrollTo({ top:0, behavior:"auto" });
+});
+if (reduced){ introT = T_UI; skipBtn.style.display = "none"; }
+
+/* ── navegação lateral ── */
+panels.forEach((pn, i) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.setAttribute("aria-label", "Ir para a seção " + (i+1));
+  b.addEventListener("click", () => {
+    skipIntro();
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo({ top:((pn.from+pn.to)/2)*max, behavior: reduced ? "auto" : "smooth" });
+  });
+  railEl.appendChild(b);
+});
+const dots = [...railEl.children];
+
+/* Caixa de cada painel em pixels — usada para suprimir os rótulos do
+   canvas que ficariam atrás do texto. Medida sob demanda e guardada em
+   cache: ler getBoundingClientRect todo frame forçaria layout. */
+let panelRects = [];
+const panelAlpha = new Array(panels.length).fill(0);
+addEventListener("resize", () => { panelRects = []; });
+
+/* ── pulsos documento → núcleo ── */
+const pulses = [];
+const ringReveal = new Array(RINGS.length).fill(0);
+let coreFlash = 0, flashTimer = 0;
+const schedule = [];
+RINGS.forEach((ring, ri) => {
+  if (!ring.pulse) return;
+  ring.nodes.forEach((_, ni) => {
+    schedule.push({ ri, ni, next: Math.random()*2.2, every: 1.6 + Math.random()*1.8 });
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   Pipeline 3D em canvas 2D
+   Mundo -> giro em Y (yaw) -> giro em X (pitch) -> perspectiva.
+   ══════════════════════════════════════════════════════════════ */
+const cam = {
+  yaw:0, pitch:CAM_PITCH, dist:1000, focal:900,
+  cy:1, sy:0, cp:1, sp:0, ox:0, oy:0,
+};
+function camUpdate(){
+  cam.cy = Math.cos(cam.yaw);  cam.sy = Math.sin(cam.yaw);
+  cam.cp = Math.cos(cam.pitch); cam.sp = Math.sin(cam.pitch);
+}
+/* projeta (x,y,z) do mundo; devolve null se estiver atrás da câmera */
+function proj(x, y, z){
+  const rx = x*cam.cy - z*cam.sy;
+  const rz = x*cam.sy + z*cam.cy;
+  const ry = y*cam.cp - rz*cam.sp;
+  const dz = y*cam.sp + rz*cam.cp + cam.dist;
+  if (dz < cam.focal*0.04) return null;
+  const k = cam.focal / dz;
+  return { x: cam.ox + rx*k, y: cam.oy - ry*k, k, z: dz };
+}
+/* ponto do anel: círculo em XZ, inclinado por tilt (eixo X) e girado por node (eixo Y) */
+function ringPoint(ring, a, yOff){
+  const x0 = Math.cos(a)*ring.r;
+  const z0 = Math.sin(a)*ring.r;
+  const y1 = (yOff||0)*ring._ct - z0*ring._st;
+  const z1 = (yOff||0)*ring._st + z0*ring._ct;
+  return {
+    x: x0*ring._cn + z1*ring._sn,
+    y: y1,
+    z: -x0*ring._sn + z1*ring._cn,
+  };
+}
+RINGS.forEach(r => {
+  r._ct = Math.cos(r.tilt); r._st = Math.sin(r.tilt);
+  r._cn = Math.cos(r.node); r._sn = Math.sin(r.node);
+});
+
+/* ── logos dos satélites ──
+   Cada arquivo é rasterizado UMA vez para um canvas quadrado. Sem isso,
+   desenhar SVG direto no canvas a cada frame força o navegador a
+   rasterizar de novo toda vez que o tamanho muda — e o tamanho muda
+   sempre, porque os satélites respiram com a perspectiva.
+
+   iconFit:
+     "contain" — logo inteiro visível, com margem. Para marcas em SVG/PNG
+                 de fundo transparente (o caso dos bancos).
+     "cover"   — preenche o disco, cortando as sobras. Para imagens
+                 quadradas que já vêm com fundo próprio (os JPGs). */
+const ICON_RASTER = 256;
+const iconCache = new Map();
+
+function loadIcon(src, fit){
+  if (!src) return null;
+  const key = src + "|" + fit;
+  if (iconCache.has(key)) return iconCache.get(key);
+  const rec = { ready:false, cv:null, src };
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = c.height = ICON_RASTER;
+    const g = c.getContext("2d");
+    const iw = im.naturalWidth || ICON_RASTER, ih = im.naturalHeight || ICON_RASTER;
+    const k = fit === "cover"
+      ? ICON_RASTER / Math.min(iw, ih)
+      : (ICON_RASTER * 0.76) / Math.max(iw, ih);
+    g.drawImage(im, (ICON_RASTER - iw*k)/2, (ICON_RASTER - ih*k)/2, iw*k, ih*k);
+    rec.cv = c; rec.ready = true;
+  };
+  im.onerror = () => console.warn("Ícone não carregou (confira o caminho):", src);
+  im.src = src;
+  iconCache.set(key, rec);
+  return rec;
+}
+RINGS.forEach(r => {
+  r._icons = r.icons ? r.icons.map(s => loadIcon(s, r.iconFit || "contain")) : null;
+});
+
+/* ── tubo de neon: halo largo -> corpo colorido -> miolo branco quente ──
+   O miolo é o que faz o traço parecer um tubo aceso e não uma linha. */
+function glowStroke(drawPath, style, width, alpha, core){
+  if (alpha <= 0.004) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = style;
+  ctx.globalAlpha = alpha*0.10; ctx.lineWidth = width*6.5;            drawPath(); ctx.stroke();
+  ctx.globalAlpha = alpha*0.22; ctx.lineWidth = width*3.0;            drawPath(); ctx.stroke();
+  ctx.globalAlpha = alpha*0.58; ctx.lineWidth = width*1.35;           drawPath(); ctx.stroke();
+  if (core){
+    ctx.strokeStyle = core;
+    ctx.globalAlpha = alpha*0.85; ctx.lineWidth = Math.max(0.7, width*0.40);
+    drawPath(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* interpola duas cores hex e devolve [r,g,b] */
+function mixHex(a, b, t){
+  const A = parseInt(a.slice(1),16), B = parseInt(b.slice(1),16);
+  return [
+    Math.round(lerp((A>>16)&255, (B>>16)&255, t)),
+    Math.round(lerp((A>>8)&255,  (B>>8)&255,  t)),
+    Math.round(lerp(A&255,       B&255,       t)),
+  ];
+}
+function pathFromPoints(pts){
+  return () => {
+    ctx.beginPath();
+    for (let i=0;i<pts.length;i++){
+      if (i===0) ctx.moveTo(pts[i].x, pts[i].y); else ctx.lineTo(pts[i].x, pts[i].y);
+    }
+  };
+}
+function pathFromSegments(segs){
+  return () => {
+    ctx.beginPath();
+    for (const s of segs){ ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
+  };
+}
+
+function zoomRadiusAt(t){
+  for (let i=0;i<ZOOM_KEYS.length-1;i++){
+    const [t0,r0] = ZOOM_KEYS[i], [t1,r1] = ZOOM_KEYS[i+1];
+    if (t <= t1){
+      const k = t1 === t0 ? 0 : smooth(clamp((t-t0)/(t1-t0),0,1));
+      return Math.exp(lerp(Math.log(r0), Math.log(r1), k));
+    }
+  }
+  return ZOOM_KEYS[ZOOM_KEYS.length-1][1];
+}
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+let last = performance.now(), clock = 0;
+let perfFrames = 0, perfSum = 0, perfChecked = false;
+
+/* buffers reaproveitados entre frames */
+const backPolys = [], frontPolys = [], backNodes = [], frontNodes = [], labels = [];
+
+function frame(now){
+  const dt = Math.min((now - last)/1000, 0.05);
+  last = now; clock += dt;
+  if (!introSkipped || introT < T_UI) introT += dt;
+
+  p  += (pRaw - p) * (reduced ? 1 : 1 - Math.pow(0.001, dt));
+  scrollVel = scrollVel*0.86 + Math.abs(p - pPrev)/Math.max(dt,0.001) * 0.14;
+  pPrev = p;
+  mx += (tmx - mx) * (1 - Math.pow(0.005, dt));
+  my += (tmy - my) * (1 - Math.pow(0.005, dt));
+
+  const glLive = renderer !== null;
+
+  /* ---------- linha do tempo da introdução ----------
+     Usa HAD_GL (fixo), não glLive: desligar a GPU no meio do crossfade
+     não pode reescrever a linha do tempo e causar saltos. */
+  const settle   = ss(T_WARP*0.45, T_BRAKE, introT);
+  const warp2d   = HAD_GL ? 0 : 1 - ss(T_WARP*0.42, T_BRAKE, introT);
+  const bgAlpha  = HAD_GL ? ss(T_HANDOFF, T_HANDOFF + 1.0, introT) : 1;
+  const coreA    = HAD_GL ? ss(T_HANDOFF - 0.15, T_HANDOFF + 0.75, introT) : 1;
+  const arrive   = HAD_GL ? 1 : ss(T_WARP*0.55, T_BRAKE + 0.4, introT);
+  const zoomK    = HAD_GL ? ss(T_HANDOFF + 0.4, T_BUILD, introT)
+                          : ss(T_WARP*0.55, T_BRAKE + 0.4, introT);
+  const build    = ss(HAD_GL ? T_HANDOFF + 0.7 : T_BRAKE + 0.1, T_BUILD, introT);
+  const uiReveal = reduced ? 1 : ss(T_BUILD - 0.6, T_UI, introT);
+  const flash    = HAD_GL ? clamp(1 - Math.abs(introT - (T_HANDOFF + 0.12)) / 0.45, 0, 1) : 0;
+
+  if (introT > T_BUILD && skipBtn.style.display !== "none") skipBtn.style.display = "none";
+
+  /* opacidade dos painéis + qual deles está ocupando a tela agora */
+  let bestIdx = -1, bestA = 0;
+  for (let i=0;i<panels.length;i++){
+    const pn = panels[i];
+    const a = smooth(Math.min(
+      clamp((p - pn.from)/0.035, 0, 1),
+      clamp((pn.to - p)/0.035, 0, 1)
+    )) * uiReveal;
+    panelAlpha[i] = a;
+    if (a > bestA){ bestA = a; bestIdx = i; }
+  }
+  let textBox = null;
+  if (bestIdx >= 0 && bestA > 0.18){
+    if (!panelRects[bestIdx]) panelRects[bestIdx] = panels[bestIdx].el.getBoundingClientRect();
+    const r = panelRects[bestIdx];
+    if (r.width > 0){
+      const padX = 54, padY = 44;   // acompanha o véu esfumado do CSS
+      textBox = { l:r.left-padX, r:r.right+padX, t:r.top-padY, b:r.bottom+padY };
+    }
+  }
+
+  /* ---------- shader ---------- */
+  if (glLive && !liveSphere){
+    // fase de abertura: render em tela cheia
+    flow += dt * lerp(0.15, 0.015, settle);
+    renderer.render(now * 1e-3, flow, settle);
+    if (!sphereTex && introT >= T_HANDOFF - 0.1) captureSphere();
+    if (!perfChecked){
+      perfFrames++; perfSum += dt;
+      if (perfFrames === 24){
+        perfChecked = true;
+        if (perfSum / perfFrames > 0.042){ glScale = 0.6; resizeGL(); }
+      }
+    }
+    if (bgAlpha >= 0.995) goLiveSphere();
+  } else if (glLive){
+    // esfera viva: quadrado pequeno, fora da tela, a ~30 fps
+    flow += dt * 0.02;
+    liveTick += dt;
+    if (liveTick >= 1/LIVE_FPS){
+      liveTick = 0;
+      renderer.render(now * 1e-3, flow, 1);
+    }
+    // se a máquina não aguentar, congela na textura já capturada
+    if (liveFrames < 120){
+      liveFrames++; liveSum += dt;
+      if (liveFrames === 120 && liveSum/120 > 0.030){
+        console.info("Esfera viva desligada por performance; usando a textura congelada.");
+        stopGL();
+      }
+    }
+  }
+
+  /* ---------- câmera ---------- */
+  const fit = Math.min(W, H) * 0.34;
+  const introZoom = lerp(2.15, 1, easeOutCubic(zoomK));
+  cam.focal = Math.min(W, H);
+  // pxPorUnidade no centro da cena = focal/dist. Igualamos ao "scale" antigo,
+  // então ZOOM_KEYS continua significando "que raio cabe na tela".
+  cam.dist  = cam.focal * zoomRadiusAt(p) / (fit * introZoom);
+  const pxu = cam.focal / cam.dist;
+  const visR = fit / pxu;   // maior raio de mundo que cabe na tela agora
+
+  /* Quanto cada camada está revelada agora. Calculado antes de tudo
+     porque os pulsos também dependem disso: satélite de anel escondido
+     não pode ficar mandando partícula para o centro. */
+  for (let i=0;i<RINGS.length;i++)
+    ringReveal[i] = 1 - ss(1.02, 1.38, RINGS[i].r / Math.max(visR, 1));
+
+  // a gaiola só começa a girar depois do handoff, senão briga com o shader
+  const spin = Math.max(0, introT - T_HANDOFF);
+  cam.yaw   = spin * CAM_AUTOYAW + mx * 0.20;
+  /* A câmera sobe conforme a apresentação avança: rasante na abertura,
+     de cima na camada 2, quase de frente para o disco lá fora. */
+  const pitchNow = lerp(
+    lerp(CAM_PITCH, CAM_PITCH_MID, ss(0.15, 0.38, p)),
+    CAM_PITCH_FAR,
+    ss(0.50, 0.74, p)
+  );
+  cam.pitch = clamp(pitchNow + my * 0.12, -1.20, -0.08);
+  camUpdate();
+
+  const wide = W > 900;
+  const shiftK = wide ? smooth(clamp((p-0.08)/0.14,0,1)) : 0;
+  cam.ox = W*0.5 - shiftK * W*0.16;
+  cam.oy = H*0.5;
+
+  const cx = cam.ox, cy = cam.oy;   // o núcleo está na origem do mundo
+
+  /* ---------- fundo ---------- */
+  ctx.clearRect(0,0,W,H);
+  if (bgAlpha > 0.001){
+    ctx.globalAlpha = bgAlpha;
+    ctx.fillStyle = "#050a18";
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha = 1;
+  }
+
+  const speed = warp2d*warp2d * 1.1 + 0.045 + Math.min(scrollVel*1.5, 2.4);
+  const focal2d = Math.min(W,H) * 0.95;
+  const streak = clamp(speed*0.055, 0.02, 0.42);
+
+  if (bgAlpha > 0.01){
+    // ---- céu profundo assado, com leve paralaxe de mouse ----
+    if (sky){
+      ctx.save();
+      ctx.globalAlpha = bgAlpha;
+      const pad = 16;
+      ctx.drawImage(sky, -pad + mx*10, -pad + my*8, W + pad*2, H + pad*2);
+      ctx.restore();
+    }
+
+    // ---- estrelas próximas: brilho, halo e hastes de difração ----
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    for (let i=0;i<stars.length;i++){
+      const st = stars[i];
+      st.z -= speed * dt;
+      if (st.z <= 0.06){ stars[i] = newStar(ZMAX); continue; }
+      const k  = focal2d / st.z;
+      const sx = cx + st.x * k, sy = cy + st.y * k;
+      if (sx < -240 || sx > W+240 || sy < -240 || sy > H+240) continue;
+
+      const depth = clamp(1 - st.z/ZMAX, 0, 1);
+      // no vácuo não há cintilação atmosférica: só uma respiração mínima
+      const tw = 0.94 + 0.06*Math.sin(clock*0.9 + st.tw);
+      const a = clamp(depth*depth*1.2, 0, 1) * tw * bgAlpha;
+      if (a <= 0.01) continue;
+      const rad = clamp(st.s * depth, 0.3, 3.4);
+
+      // durante o warp do fallback as cores esquentam levemente
+      // ao acelerar, as estrelas puxam para a brasa da paleta (#ff9d5c)
+      const heat = clamp(warp2d*0.8 + Math.min(scrollVel,1)*0.35, 0, 1);
+      const r = Math.round(lerp(st.c[0], 255, heat*0.5));
+      const g = Math.round(lerp(st.c[1], 157, heat*0.5));
+      const b = Math.round(lerp(st.c[2],  92, heat*0.5));
+      const rgb = `rgb(${r},${g},${b})`;
+
+      if (streak > 0.05){
+        const kb = focal2d / (st.z + streak);
+        ctx.globalAlpha = a * 0.6;
+        ctx.strokeStyle = rgb;
+        ctx.lineWidth = rad*1.1;
+        ctx.beginPath();
+        ctx.moveTo(cx + st.x*kb, cy + st.y*kb); ctx.lineTo(sx, sy);
+        ctx.stroke();
+      }
+
+      // halo suave — é o que dá "profundidade de foto" ao ponto
+      if (st.mag > 0.12){
+        const gl = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad*5.5);
+        gl.addColorStop(0, `rgba(${r},${g},${b},${a*0.32})`);
+        gl.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = gl;
+        ctx.beginPath(); ctx.arc(sx, sy, rad*5.5, 0, TAU); ctx.fill();
+      }
+
+      ctx.globalAlpha = a;
+      ctx.fillStyle = rgb;
+      ctx.beginPath(); ctx.arc(sx, sy, rad, 0, TAU); ctx.fill();
+
+      // hastes de difração nas mais brilhantes
+      if (st.mag > 0.55){
+        const L = rad * (5 + st.mag*9);
+        ctx.globalAlpha = a * 0.34 * st.mag;
+        ctx.strokeStyle = rgb;
+        ctx.lineWidth = Math.max(0.6, rad*0.34);
+        ctx.beginPath();
+        ctx.moveTo(sx - L, sy); ctx.lineTo(sx + L, sy);
+        ctx.moveTo(sx, sy - L); ctx.lineTo(sx, sy + L);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    // brilho difuso do próprio núcleo iluminando o gás em volta
+    const halo = ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*0.5);
+    halo.addColorStop(0,   `rgba(77,153,230,${(0.07 + 0.06*arrive)*bgAlpha})`);
+    halo.addColorStop(0.35,`rgba(60,110,190,${0.03*bgAlpha})`);
+    halo.addColorStop(1,   "rgba(0,0,0,0)");
+    ctx.fillStyle = halo;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  /* ---------- disco galáctico ----------
+     Entra conforme a câmera recua: invisível na camada 1 (visR≈430),
+     já presente na camada 2 (visR≈1150). */
+  const galA = ss(470, 1350, visR) * bgAlpha;
+  if (galA > 0.012){
+    const flat = Math.max(0.05, Math.abs(Math.sin(cam.pitch)));
+
+    // véu do disco: um círculo achatado pelo ângulo da câmera
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.translate(cx, cy);
+    ctx.scale(1, flat);
+    const dr = GALAXY.rMax * pxu * 0.92;
+    if (dr > 4){
+      const dg = ctx.createRadialGradient(0,0,0,0,0,dr);
+      dg.addColorStop(0,    `rgba(255,214,158,${0.13*galA})`);
+      dg.addColorStop(0.18, `rgba(210,190,220,${0.08*galA})`);
+      dg.addColorStop(0.55, `rgba(120,170,240,${0.045*galA})`);
+      dg.addColorStop(1,    "rgba(0,0,0,0)");
+      ctx.fillStyle = dg;
+      ctx.beginPath(); ctx.arc(0,0,dr,0,TAU); ctx.fill();
+    }
+    ctx.restore();
+
+    // bojo central, esse não é achatado
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const br = GALAXY.rMin * pxu * 3.2;
+    if (br > 3){
+      const bg = ctx.createRadialGradient(cx,cy,0,cx,cy,br);
+      bg.addColorStop(0, `rgba(255,232,186,${0.20*galA})`);
+      bg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(cx,cy,br,0,TAU); ctx.fill();
+    }
+    ctx.restore();
+
+    const gs = clock * 0.006, cgs = Math.cos(gs), sgs = Math.sin(gs);
+
+    // berçários de estrelas, antes das estrelas para ficarem por baixo
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i=0;i<GALAXY.knots.length;i++){
+      const q = GALAXY.knots[i];
+      const s = proj(q.x*cgs - q.z*sgs, q.y, q.x*sgs + q.z*cgs);
+      if (!s) continue;
+      const kr = q.r * pxu * clamp(s.k/pxu, 0.3, 1.8);
+      if (kr < 1.5 || s.x < -kr || s.x > W+kr || s.y < -kr || s.y > H+kr) continue;
+      const kg = ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,kr);
+      kg.addColorStop(0,   `rgba(255,150,190,${q.a*galA*0.55})`);
+      kg.addColorStop(0.45,`rgba(200,120,220,${q.a*galA*0.22})`);
+      kg.addColorStop(1,   "rgba(0,0,0,0)");
+      ctx.fillStyle = kg;
+      ctx.beginPath(); ctx.arc(s.x,s.y,kr,0,TAU); ctx.fill();
+    }
+    ctx.restore();
+
+    // as estrelas dos braços — giro lento e solidário do disco inteiro
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i=0;i<GALAXY.pts.length;i++){
+      const q = GALAXY.pts[i];
+      const s = proj(q.x*cgs - q.z*sgs, q.y, q.x*sgs + q.z*cgs);
+      if (!s || s.x < -30 || s.x > W+30 || s.y < -30 || s.y > H+30) continue;
+      const persp = clamp(s.k/pxu, 0.25, 1.6);
+      const sz = clamp(q.s * persp, 0.4, 2.8);
+      ctx.globalAlpha = q.a * galA * persp;
+      ctx.fillStyle = q.c;
+      ctx.fillRect(s.x, s.y, sz, sz);
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------- pulsos: agenda ---------- */
+  if (!reduced && build > 0.9){
+    for (const s of schedule){
+      // camada ainda não revelada: mantém o cronômetro armado e não dispara
+      if (ringReveal[s.ri] < 0.55){ s.next = s.every; continue; }
+      s.next -= dt;
+      if (s.next <= 0){
+        s.next = s.every;
+        pulses.push({ ri:s.ri, ni:s.ni, t:0, life:1.05 + Math.random()*0.75 });
+      }
+    }
+  }
+
+  /* ══════════ monta a cena 3D e separa por profundidade ══════════ */
+  backPolys.length = frontPolys.length = 0;
+  backNodes.length = frontNodes.length = 0;
+  labels.length = 0;
+
+  const SEGMENTS = 96;
+  const coreZ = cam.dist;   // profundidade do centro do mundo
+
+  for (let ri = 0; ri < RINGS.length; ri++){
+    const ring = RINGS[ri];
+    const rs = ring.r * pxu;
+    if (rs < 7 || rs > Math.max(W,H)*3.2) continue;
+
+    const stagger = clamp((build - ri*0.11) / 0.5, 0, 1);
+    if (stagger <= 0.001) continue;
+    const grow = easeOutCubic(stagger);
+
+    /* Uma camada só aparece quando a câmera já recuou o bastante para
+       enquadrá-la. visR é o raio de mundo que cabe na tela agora, então
+       ZOOM_KEYS passa a controlar diretamente o que está visível:
+       no início cabem 430 -> só os três primeiros anéis. */
+    const reveal = ringReveal[ri];
+    if (reveal <= 0.004) continue;
+
+    const vis = clamp((rs - 9)/60, 0, 1) * reveal * stagger;
+    if (vis <= 0.004) continue;
+
+    // a órbita se desenha progressivamente durante a construção
+    const count = Math.max(2, Math.round(SEGMENTS*grow));
+    const mine = [];
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    let run = [], runBack = null;
+    /* Cada trecho guarda a própria profundidade média: em vez de dois
+       níveis fixos (atrás/na frente), o brilho varia continuamente ao
+       longo do anel, como perspectiva atmosférica. */
+    const flush = () => {
+      if (run.length <= 1) return;
+      let zs = 0;
+      for (const q of run) zs += q.z;
+      zs /= run.length;
+      const near = clamp((cam.dist*1.4 - zs) / (cam.dist*0.8), 0, 1);
+      mine.push({ pts:run, ring, vis, back:runBack, near });
+    };
+    for (let i=0;i<=count;i++){
+      const a = -Math.PI/2 + (i/SEGMENTS)*TAU;
+      const w = ringPoint(ring, a, 0);
+      const s = proj(w.x, w.y, w.z);
+      if (!s){ flush(); run=[]; runBack=null; continue; }
+      if (s.x<minX) minX=s.x; if (s.x>maxX) maxX=s.x;
+      if (s.y<minY) minY=s.y; if (s.y>maxY) maxY=s.y;
+      const isBack = s.z > coreZ;
+      if (runBack === null) runBack = isBack;
+      if (isBack !== runBack){ run.push(s); flush(); run=[s]; runBack=isBack; }
+      else run.push(s);
+    }
+    flush();
+
+    // um gradiente só para o anel inteiro, compartilhado pelos trechos —
+    // assim a cor não "reinicia" onde a órbita passa por trás do núcleo
+    let grad = ring.color;
+    if (mine.length && maxX > minX){
+      grad = ctx.createLinearGradient(minX, minY, maxX, maxY);
+      grad.addColorStop(0, ring.color);
+      const m = mixHex(ring.color, ring.color2, 0.5);
+      grad.addColorStop(0.5, `rgb(${m[0]},${m[1]},${m[2]})`);
+      grad.addColorStop(1, ring.color2);
+    }
+    const lw = clamp(rs*0.013, 1.0, 8);
+    for (const poly of mine){
+      poly.grad = grad; poly.lw = lw;
+      (poly.back ? backPolys : frontPolys).push(poly);
+    }
+
+    // satélites
+    const baseR = clamp(rs * 0.030, 2.2, 13);
+    /* Emblemas não podem encostar uns nos outros: o teto é a distância
+       entre vizinhos no anel. Com 5 logos isso nunca pesa; com 25, é
+       ele que manda. */
+    const gap = (TAU * rs) / ring.nodes.length;
+    const iconMax = Math.min(clamp(rs * 0.105, 8, 54), gap * 0.30);
+    for (let ni = 0; ni < ring.nodes.length; ni++){
+      const frac = ni / ring.nodes.length;
+      const pop = clamp((grow - frac*0.85) / 0.18, 0, 1);
+      if (pop <= 0.001) continue;
+      const popE = easeOutCubic(pop);
+      const a = -Math.PI/2 + frac*TAU + clock*ring.speed + ri*0.7;
+      const w = ringPoint(ring, a, 0);
+      const s = proj(w.x, w.y, w.z);
+      if (!s) continue;
+      const rgb = mixHex(ring.color, ring.color2, frac);   // cor da sua posição no anel
+      const persp = s.k / pxu;
+      const icon = ring._icons ? ring._icons[ni] : null;
+      const item = {
+        s, ring, vis, popE, world:w, rgb,
+        r: baseR * (0.4 + 0.6*popE) * (1 + (1-popE)*0.9) * persp,
+        // emblema bem maior que a esfera: um logo precisa ser legível
+        icon: (icon && icon.ready) ? icon.cv : null,
+        iconR: iconMax * (0.45 + 0.55*popE) * persp,
+        label: ring.nodes[ni],
+        radial: ring.nodes.length > 8,   // anel cheio: rótulo em leque
+        labelA: vis * clamp((rs-140)/160, 0, 1) * clamp((stagger-0.6)/0.4, 0, 1),
+      };
+      (s.z > coreZ ? backNodes : frontNodes).push(item);
+    }
+  }
+  backNodes.sort((a,b) => b.s.z - a.s.z);
+  frontNodes.sort((a,b) => b.s.z - a.s.z);
+
+  /* ── desenha um satélite ── */
+  function drawNode(it){
+    const { s } = it;
+    const [cr,cg,cb] = it.rgb;
+    const depth = clamp(0.55 + 0.45*(cam.dist*1.4 - s.z)/(cam.dist*0.9), 0.35, 1);
+    const a = it.vis * it.popE * depth;
+    if (a <= 0.006) return;
+
+    // emblema com logo — só quando houver espaço para ele ser legível
+    const badge = it.icon && it.iconR > 7;
+    const nr = badge ? it.iconR : clamp(it.r, 1.4, 26);
+
+    // halo colorido, comum aos dois casos
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = a * (badge ? 0.42 : 0.5);
+    const gl = ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,nr*(badge?2.4:4.5));
+    gl.addColorStop(0, `rgba(${cr},${cg},${cb},.6)`);
+    gl.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(s.x,s.y,nr*(badge?2.4:4.5),0,TAU); ctx.fill();
+    ctx.restore();
+
+    if (badge){
+      ctx.save();
+      ctx.globalAlpha = a;
+      // placa branca: dá um fundo comum a logos de fundo transparente
+      ctx.beginPath(); ctx.arc(s.x,s.y,nr,0,TAU);
+      ctx.fillStyle = "#fff"; ctx.fill();
+      ctx.save();
+      ctx.clip();
+      // o ícone já vem rasterizado num quadrado com o encaixe aplicado
+      ctx.drawImage(it.icon, s.x - nr, s.y - nr, nr*2, nr*2);
+      ctx.restore();
+      // aro na cor do anel, para o emblema pertencer ao sistema
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},.95)`;
+      ctx.lineWidth = Math.max(1, nr*0.10);
+      ctx.beginPath(); ctx.arc(s.x,s.y,nr*0.97,0,TAU); ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.globalAlpha = a;
+      const body = ctx.createRadialGradient(s.x - nr*0.3, s.y - nr*0.34, nr*0.08, s.x, s.y, nr);
+      body.addColorStop(0,    "rgba(255,255,255,.95)");
+      body.addColorStop(0.35, `rgb(${cr},${cg},${cb})`);
+      body.addColorStop(1,    `rgba(${cr},${cg},${cb},.22)`);
+      ctx.fillStyle = body;
+      ctx.beginPath(); ctx.arc(s.x,s.y,nr,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+
+    // com emblema, o próprio logo é o rótulo — 25 nomes ao redor do anel
+    // viraria uma tarja ilegível
+    if (!badge && it.labelA > 0.02 && nr > 3.2){
+      if (it.radial){
+        /* Anéis cheios: o rótulo sai radialmente para fora, como raio de
+           roda. Empilhado embaixo de cada satélite, 26 nomes colidiriam
+           num bloco só; em leque, eles se espalham pela borda. */
+        const dx = s.x - cx, dy = s.y - cy;
+        const len = Math.hypot(dx, dy) || 1;
+        const ox = dx/len, oy = dy/len;
+        labels.push({
+          x: s.x + ox*(nr + 9),
+          y: s.y + oy*(nr + 9),
+          text: it.label, a: it.labelA*depth, z: s.z,
+          align: ox > 0.2 ? "left" : ox < -0.2 ? "right" : "center",
+          base:  ox > 0.2 || ox < -0.2 ? "middle" : (oy > 0 ? "top" : "bottom"),
+        });
+      } else {
+        labels.push({ x:s.x, y:s.y + nr + 11, text:it.label, a:it.labelA*depth,
+                      z:s.z, align:"center", base:"top" });
+      }
+    }
+  }
+
+  /* ---------- 1) o que está atrás do núcleo ---------- */
+  for (const poly of backPolys)
+    glowStroke(pathFromPoints(poly.pts), poly.grad, poly.lw,
+               poly.vis * lerp(0.24, 0.40, poly.near),
+               `rgba(255,255,255,${lerp(0.34, 0.62, poly.near).toFixed(2)})`);
+  for (const it of backNodes) drawNode(it);
+
+  /* ---------- 2) o núcleo: esfera + gaiola de icosaedro ---------- */
+  // batida do núcleo: ritmo fixo, independente dos satélites
+  coreFlash = Math.max(0, coreFlash - dt*2.1);
+  if (build > 0.9 && !reduced){
+    flashTimer += dt;
+    if (flashTimer >= CORE_PULSE_EVERY){ flashTimer -= CORE_PULSE_EVERY; coreFlash = 1.15; }
+  }
+  const breathe = 1 + Math.sin(clock*1.25)*0.03 + coreFlash*0.05;
+  const R = Math.max(CORE_R * pxu * breathe, 4);
+
+  if (coreA > 0.004){
+    ctx.save();
+    ctx.globalAlpha = coreA;
+
+    // aura
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = coreA;
+    const aura = ctx.createRadialGradient(cx,cy,R*0.4,cx,cy,R*6);
+    aura.addColorStop(0,   `rgba(143,216,255,${0.26 + coreFlash*0.22})`);
+    aura.addColorStop(0.4, "rgba(77,153,230,0.09)");
+    aura.addColorStop(1,   "rgba(0,0,0,0)");
+    ctx.fillStyle = aura;
+    ctx.beginPath(); ctx.arc(cx,cy,R*6,0,TAU); ctx.fill();
+    ctx.restore();
+
+    // corpo: a esfera capturada do shader
+    ctx.globalAlpha = coreA;
+    const soloImg = CORE_IMAGE_SOLO && coreImg;
+    if (soloImg){
+      // só a logo: um fundo escuro dentro da gaiola
+      const back = ctx.createRadialGradient(cx,cy,0,cx,cy,R);
+      back.addColorStop(0,   "#0b1630");
+      back.addColorStop(1,   "#050a18");
+      ctx.fillStyle = back;
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.fill();
+    } else if (liveSphere || sphereTex){
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.clip();
+      if (!drawCoreBody(cx, cy, R)){
+        ctx.fillStyle = "#0a1226";
+        ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.fill();
+      }
+      ctx.restore();
+    } else {
+      const sphere = ctx.createRadialGradient(cx - R*0.3, cy - R*0.34, R*0.08, cx, cy, R);
+      sphere.addColorStop(0,   "#dff0ff");
+      sphere.addColorStop(0.26,"#8fd8ff");
+      sphere.addColorStop(0.62,"#2f6cb0");
+      sphere.addColorStop(1,   "#070c1c");
+      ctx.fillStyle = sphere;
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.fill();
+    }
+
+    // a logo, dentro da esfera
+    drawCoreImage(cx, cy, R, coreA);
+
+    // rim light
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = coreA * 0.4;
+    ctx.strokeStyle = "rgba(143,216,255,.9)";
+    ctx.lineWidth = Math.max(1, R*0.05);
+    ctx.beginPath(); ctx.arc(cx,cy,R*0.985,0,TAU); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // gaiola de icosaedro, girando em torno da esfera
+  const cageA = coreA * ss(0.05, 0.55, build);
+  const cageR = CAGE_R * pxu * breathe;
+  if (cageA > 0.01 && cageR > 6){
+    const rx = spin*0.20, ry = spin*0.25, rz = spin*0.12;
+    const cxr=Math.cos(rx), sxr=Math.sin(rx);
+    const cyr=Math.cos(ry), syr=Math.sin(ry);
+    const czr=Math.cos(rz), szr=Math.sin(rz);
+    const pts = ICO.verts.map(v => {
+      let x=v[0]*CAGE_R, y=v[1]*CAGE_R, z=v[2]*CAGE_R;
+      let y1=y*cxr - z*sxr, z1=y*sxr + z*cxr;
+      let x2=x*cyr + z1*syr, z2=-x*syr + z1*cyr;
+      let x3=x2*czr - y1*szr, y3=x2*szr + y1*czr;
+      return proj(x3, y3, z2);
+    });
+    const segs = [];
+    for (const [i,j] of ICO.edges){
+      if (pts[i] && pts[j]) segs.push([pts[i].x, pts[i].y, pts[j].x, pts[j].y]);
+    }
+    glowStroke(pathFromSegments(segs), "#7fb8e0", 0.75, cageA*0.34*CAGE_OPACITY);
+    ctx.save();
+    ctx.globalAlpha = cageA * 0.5 * CAGE_OPACITY;
+    for (const v of pts){
+      if (!v) continue;
+      ctx.fillStyle = "rgba(196,226,255,.85)";
+      ctx.beginPath(); ctx.arc(v.x, v.y, Math.max(0.8, cageR*0.015), 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- 3) o que está na frente do núcleo ---------- */
+  for (const poly of frontPolys)
+    glowStroke(pathFromPoints(poly.pts), poly.grad, poly.lw,
+               poly.vis * lerp(0.40, 0.56, poly.near),
+               `rgba(255,255,255,${lerp(0.66, 0.98, poly.near).toFixed(2)})`);
+  for (const it of frontNodes) drawNode(it);
+
+  /* ---------- pulsos ---------- */
+  for (let i = pulses.length - 1; i >= 0; i--){
+    const pu = pulses[i];
+    pu.t += dt / pu.life;
+    if (pu.t >= 1){ pulses.splice(i,1); continue; }   // chegar não acende mais o núcleo
+    const ring = RINGS[pu.ri];
+    // se a camada saiu de vista no meio do voo, a partícula some junto
+    if (ringReveal[pu.ri] < 0.35){ pulses.splice(i,1); continue; }
+    if (ring.r * pxu < 7) continue;
+    const a = -Math.PI/2 + (pu.ni/ring.nodes.length)*TAU + clock*ring.speed + pu.ri*0.7;
+    const w = ringPoint(ring, a, 0);
+    const e = pu.t * pu.t;
+    const et = Math.max(0, e - 0.14);
+    const s1 = proj(w.x*(1-e), w.y*(1-e), w.z*(1-e));
+    const s2 = proj(w.x*(1-et), w.y*(1-et), w.z*(1-et));
+    if (!s1 || !s2) continue;
+    const al = Math.sin(pu.t * Math.PI) * 0.95;
+    const pc = mixHex(ring.color, ring.color2, pu.ni/ring.nodes.length);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = al * 0.6;
+    ctx.strokeStyle = `rgb(${pc[0]},${pc[1]},${pc[2]})`;
+    ctx.lineWidth = 1.8; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(s2.x,s2.y); ctx.lineTo(s1.x,s1.y); ctx.stroke();
+    ctx.globalAlpha = al;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(s1.x, s1.y, 2.2, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---------- clarão do handoff / frenagem ---------- */
+  const shock = HAD_GL
+    ? flash
+    : ss(T_BRAKE-0.35, T_BRAKE+1.5, introT) * (1 - ss(T_BRAKE+0.6, T_BRAKE+2.2, introT));
+  if (shock > 0.01){
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = shock * 0.45;
+    ctx.strokeStyle = "rgba(170,215,255,.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, R*(1.2 + (1-shock)*7), 0, TAU); ctx.stroke();
+    const fl = ctx.createRadialGradient(cx,cy,0,cx,cy,R*5);
+    fl.addColorStop(0, `rgba(200,230,255,${shock*0.28})`);
+    fl.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fl;
+    ctx.beginPath(); ctx.arc(cx,cy,R*5,0,TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---------- rótulos (sempre por cima, em espaço de tela) ---------- */
+  if (labels.length){
+    ctx.save();
+    ctx.font = "500 12px 'Inter','Segoe UI',system-ui,sans-serif";
+    ctx.shadowColor = "rgba(2,5,14,.95)"; ctx.shadowBlur = 9;
+
+    /* Os mais próximos da câmera têm prioridade; quem chegar depois e
+       colidir simplesmente não é desenhado. Melhor faltar um nome do
+       que entregar dois nomes embolados e ilegíveis. */
+    labels.sort((A,B) => A.z - B.z);
+    const placed = [];
+    const LH = 15;
+    for (const L of labels){
+      if (textBox && L.x > textBox.l && L.x < textBox.r
+                  && L.y > textBox.t && L.y < textBox.b) continue;
+
+      const w = ctx.measureText(L.text).width;
+      const l = L.align === "left" ? L.x : L.align === "right" ? L.x - w : L.x - w/2;
+      const t = L.base === "middle" ? L.y - LH/2 : L.base === "bottom" ? L.y - LH : L.y;
+      const box = { l:l-3, r:l+w+3, t:t-2, b:t+LH+2 };
+
+      let hit = false;
+      for (const q of placed){
+        if (box.l < q.r && box.r > q.l && box.t < q.b && box.b > q.t){ hit = true; break; }
+      }
+      if (hit) continue;
+      placed.push(box);
+
+      ctx.globalAlpha = L.a;
+      ctx.textAlign = L.align; ctx.textBaseline = L.base;
+      ctx.fillStyle = "rgba(233,240,255,.94)";
+      ctx.fillText(L.text, L.x, L.y);
+    }
+    ctx.restore();
+  }
+  // nome do núcleo, fora da esfera para não brigar com o reflexo
+  if (coreA > 0.1 && R > 14 && build > 0.3){
+    ctx.save();
+    ctx.globalAlpha = coreA * ss(0.3,0.75,build) * 0.95;
+    ctx.font = "600 " + Math.round(clamp(R*0.20, 10, 15)) + "px 'Inter','Segoe UI',system-ui,sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(238,247,255,.95)";
+    ctx.shadowColor = "rgba(2,5,14,.95)"; ctx.shadowBlur = 10;
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "3px";
+    ctx.fillText(CORE_LABEL, cx, cy + Math.max(cageR, R) + 20);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    ctx.restore();
+  }
+
+  /* ---------- HUD / painéis ---------- */
+  for (let i=0;i<panels.length;i++){
+    const pn = panels[i];
+    const a = panelAlpha[i];
+    pn.el.style.opacity = a;
+    const y = (1-a) * 26;
+    if (W > 900){
+      const base = pn.el.classList.contains("center") ? "translate(-50%,-50%)"
+                 : pn.el.classList.contains("hero")   ? "translateX(-50%)"
+                 : "translateY(-50%)";
+      pn.el.style.transform = base + ` translateY(${y}px)`;
+    } else {
+      pn.el.style.transform = `translateY(${y}px)`;
+    }
+    if (dots[i]) dots[i].classList.toggle("on", a > 0.5);
+  }
+
+  bar.style.width = (p*100).toFixed(2) + "%";
+  brand.style.opacity = uiReveal;
+  readout.style.opacity = uiReveal * 0.9;
+  railEl.style.opacity = uiReveal;
+  hint.style.opacity = uiReveal * (p > 0.02 ? 0 : 1);
+  readout.textContent = "escala " + (pxu >= 0.1 ? pxu.toFixed(2) + "×" : (pxu*1000).toFixed(0) + "‰");
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+readScroll();
+p = pRaw;
+camUpdate();
+requestAnimationFrame(frame);
+
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     COMO EMBUTIR A LOGO NO PRÓPRIO ARQUIVO (um HTML só)
+
+     PowerShell, na pasta da imagem:
+       $b = [Convert]::ToBase64String((Get-Content -Path logo.png -Encoding Byte))
+       "data:image/png;base64,$b" | Set-Clipboard
+
+     Depois cole o conteúdo da área de transferência entre as aspas de
+     CORE_IMAGE, lá no topo do script.
+
+     Observações:
+       · PNG com fundo transparente dá o melhor resultado.
+       · Troque image/png por image/svg+xml ou image/jpeg conforme o arquivo.
+       · Imagem acima de ~500 KB deixa o HTML pesado para enviar por e-mail;
+         redimensione para uns 512 px de lado antes de converter.
+     ══════════════════════════════════════════════════════════════ -->
+</body>
+</html>
