@@ -253,7 +253,7 @@ void main() {
        O estilo .panel.hero continua no CSS, pronto para uso. -->
 
   <!-- ============ 1 · AS FONTES ============ -->
-  <section class="panel" data-from="0.10" data-to="0.26">
+  <section class="panel" data-from="0.10" data-to="0.22">
     <p class="kicker">Camada 1 · Entrada</p>
     <h2>Buscadores de Notas</h2>
     <p>Está pronto para simplificar ainda mais sua contabilidade? Ativar a integração de buscadores de notas no Mister Contador é essencial para uma gestão eficiente das suas notas fiscais. Neste artigo, vamos mostrar como realizar esse processo de forma descomplicada e ágil.</p>
@@ -264,7 +264,7 @@ void main() {
   </section>
 
   <!-- ============ 2 · INTEGRAÇÃO BANCÁRIA ============ -->
-  <section class="panel" data-from="0.26" data-to="0.44">
+  <section class="panel" data-from="0.29" data-to="0.40">
     <p class="kicker">Camada 2 · Integração bancária</p>
     <h2>Open Finance conectado ao Mister Contador</h2>
     <p>Com o consentimento do cliente, as movimentações chegam direto da instituição financeira — sem arquivo OFX, sem planilha, sem espera pelo fechamento do mês.</p>
@@ -276,7 +276,7 @@ void main() {
   </section>
 
   <!-- ============ 3 · QUEM CONSOME ============ -->
-  <section class="panel" data-from="0.44" data-to="0.62">
+  <section class="panel" data-from="0.43" data-to="0.55">
     <p class="kicker">Camada 3 · Sistemas contábeis</p>
     <h2>Conectado a quem você já usa</h2>
     <p>Nada de trocar de sistema. O plano de contas é lido direto do seu contábil, e o lançamento volta classificado do jeito que ele espera.</p>
@@ -287,8 +287,19 @@ void main() {
     </ul>
   </section>
 
-  <!-- ============ 4 · NÚMEROS ============ -->
-  <section class="panel center" data-from="0.62" data-to="0.78">
+  <!-- ============ 4 · O IMPACTO / REDE NEURAL ============
+       0.605 a 0.700 é a queda do meteoro — de propósito sem texto,
+       para a animação respirar. O painel entra depois do baque. -->
+  <section class="panel center" data-from="0.735" data-to="0.835">
+    <p class="kicker">O que se abre no impacto</p>
+    <h2>A rede neural</h2>
+    <p class="dim">Aqui entra o componente <code>neural-bank</code> — 185 instituições
+       conectadas ao núcleo, em Three.js. Por enquanto este é só o marcador:
+       a animação do meteoro é que está em teste.</p>
+  </section>
+
+  <!-- ============ 5 · NÚMEROS ============ -->
+  <section class="panel center" data-from="0.855" data-to="0.915">
     <p class="kicker">Resultado</p>
     <h2>O que isso já significa</h2>
     <div class="metrics">
@@ -300,7 +311,7 @@ void main() {
   </section>
 
   <!-- ============ 5 · PRÓXIMOS PASSOS ============ -->
-  <section class="panel center" data-from="0.78" data-to="0.93">
+  <section class="panel center" data-from="0.92" data-to="0.965">
     <p class="kicker">A seguir</p>
     <h2>Para onde o sistema cresce</h2>
     <div class="steps">
@@ -311,7 +322,7 @@ void main() {
   </section>
 
   <!-- ============ 6 · FECHAMENTO ============ -->
-  <section class="panel center" data-from="0.93" data-to="1.01">
+  <section class="panel center" data-from="0.972" data-to="1.01">
     <h1 style="font-size:clamp(28px,4.6vw,56px)">Um núcleo.<br>Todo o resto orbita.</h1>
     <p class="dim">Seu nome · Time · Data da apresentação</p>
   </section>
@@ -326,7 +337,7 @@ void main() {
 <button class="skip" id="skip" type="button">Pular introdução</button>
 
 <!-- altura de rolagem: é isto que "dirige" a animação -->
-<div id="scroller" style="height:900vh"></div>
+<div id="scroller" style="height:1150vh"></div>
 
 <script>
 (() => {
@@ -414,14 +425,28 @@ const T_HANDOFF = 5.4;
 const T_BUILD   = 8.8;
 const T_UI      = 9.4;
 
-/* Zoom: em cada ponto da rolagem, qual raio deve caber na tela. */
+/* Zoom: em cada ponto da rolagem, qual raio deve caber na tela.
+   Depois da camada externa a curva INVERTE: a câmera mergulha de volta
+   para perto do núcleo, senão o meteoro acertaria um ponto minúsculo. */
 const ZOOM_KEYS = [
-  [0.00,  430], [0.09,  430],
-  [0.26,  430], [0.34, 1150],
-  [0.44, 1150], [0.52, 2450],
-  [0.62, 2450], [0.72, 5000],
-  [0.86, 5000], [1.00, 9000],
+  [0.00,  430], [0.10,  430],
+  [0.22,  430], [0.30, 1150],
+  [0.36, 1150], [0.44, 2450],
+  [0.50, 2450], [0.57, 5000],
+  [0.60, 5000],
+  [0.70,  450],   // mergulho, acompanhando a queda do meteoro
+  [0.84,  450],   // segura perto enquanto a rede neural abre
+  [1.00, 2400],
 ];
+
+/* --- meteoro --- */
+const METEOR_IN  = 0.605;   // entra em quadro
+const METEOR_HIT = 0.700;   // impacto no núcleo
+const METEOR_DIR = (() => {  // de onde ele vem (normalizado)
+  const v = { x:-0.72, y:0.56, z:-0.41 };
+  const L = Math.hypot(v.x, v.y, v.z);
+  return { x:v.x/L, y:v.y/L, z:v.z/L };
+})();
 
 /* Câmera 3D
    CAM_PITCH negativo = câmera acima do plano das órbitas, olhando para
@@ -1268,10 +1293,19 @@ function frame(now){
   cam.pitch = clamp(pitchNow + my * 0.12, -1.20, -0.08);
   camUpdate();
 
+  /* ---------- meteoro: tudo é função pura da rolagem, para poder
+     rolar para trás e a cena desfazer o impacto corretamente ---------- */
+  const mt      = clamp((p - METEOR_IN) / (METEOR_HIT - METEOR_IN), 0, 1);
+  const hitT    = ss(METEOR_HIT, METEOR_HIT + 0.010, p);
+  const blast   = hitT * (1 - ss(METEOR_HIT + 0.008, METEOR_HIT + 0.085, p));
+  const coreOpen= ss(METEOR_HIT, METEOR_HIT + 0.055, p);
+
   const wide = W > 900;
   const shiftK = wide ? smooth(clamp((p-0.08)/0.14,0,1)) : 0;
-  cam.ox = W*0.5 - shiftK * W*0.16;
-  cam.oy = H*0.5;
+  // o tranco do impacto sacode a câmera inteira
+  const shake = blast * 20;
+  cam.ox = W*0.5 - shiftK * W*0.16 + Math.sin((p - METEOR_HIT)*1100) * shake;
+  cam.oy = H*0.5 + Math.cos((p - METEOR_HIT)*1460) * shake * 0.7;
 
   const cx = cam.ox, cy = cam.oy;   // o núcleo está na origem do mundo
 
@@ -1720,15 +1754,18 @@ function frame(now){
   }
 
   // gaiola de icosaedro, girando em torno da esfera
-  const cageA = coreA * ss(0.05, 0.55, build);
-  const cageR = CAGE_R * pxu * breathe;
+  // no impacto a gaiola se abre para fora e some
+  const cageBurst = 1 + coreOpen*2.6;
+  const cageWorldR = CAGE_R * cageBurst;
+  const cageA = coreA * ss(0.05, 0.55, build) * (1 - coreOpen);
+  const cageR = CAGE_R * pxu * breathe * cageBurst;
   if (cageA > 0.01 && cageR > 6){
     const rx = spin*0.20, ry = spin*0.25, rz = spin*0.12;
     const cxr=Math.cos(rx), sxr=Math.sin(rx);
     const cyr=Math.cos(ry), syr=Math.sin(ry);
     const czr=Math.cos(rz), szr=Math.sin(rz);
     const pts = ICO.verts.map(v => {
-      let x=v[0]*CAGE_R, y=v[1]*CAGE_R, z=v[2]*CAGE_R;
+      let x=v[0]*cageWorldR, y=v[1]*cageWorldR, z=v[2]*cageWorldR;
       let y1=y*cxr - z*sxr, z1=y*sxr + z*cxr;
       let x2=x*cyr + z1*syr, z2=-x*syr + z1*cyr;
       let x3=x2*czr - y1*szr, y3=x2*szr + y1*czr;
@@ -1745,6 +1782,101 @@ function frame(now){
       if (!v) continue;
       ctx.fillStyle = "rgba(196,226,255,.85)";
       ctx.beginPath(); ctx.arc(v.x, v.y, Math.max(0.8, cageR*0.015), 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- o meteoro ---------- */
+  if (mt > 0 && mt < 1){
+    // parte longe e acelera: a distância cai com o quadrado do tempo
+    const START = Math.max(visR, 600) * 3.2;
+    const posAt = u => {
+      const d = START * (1 - u*u);
+      return { x: METEOR_DIR.x*d, y: METEOR_DIR.y*d, z: METEOR_DIR.z*d };
+    };
+    const head = posAt(mt);
+    const hs = proj(head.x, head.y, head.z);
+    if (hs){
+      // rastro: amostra o próprio caminho para trás no tempo
+      const TR = 22, trail = [];
+      for (let i = 0; i <= TR; i++){
+        const u = Math.max(0, mt - i*0.016);
+        const q = posAt(u);
+        const sp = proj(q.x, q.y, q.z);
+        if (sp) trail.push(sp); else break;
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      const hr = clamp(hs.k/pxu * 7, 2.5, 34);
+      for (let i = 0; i < trail.length-1; i++){
+        const f = 1 - i/(trail.length-1);           // 1 na cabeça, 0 na cauda
+        ctx.globalAlpha = f*f * 0.55;
+        ctx.strokeStyle = i < 3 ? "#fff8ec" : i < 9 ? "#ffb066" : "#ff6a2b";
+        ctx.lineWidth = Math.max(0.6, hr * 0.75 * f);
+        ctx.beginPath();
+        ctx.moveTo(trail[i].x, trail[i].y);
+        ctx.lineTo(trail[i+1].x, trail[i+1].y);
+        ctx.stroke();
+      }
+      // halo de calor
+      const hg = ctx.createRadialGradient(hs.x, hs.y, 0, hs.x, hs.y, hr*6);
+      hg.addColorStop(0,    "rgba(255,225,180,.75)");
+      hg.addColorStop(0.35, "rgba(255,130,50,.28)");
+      hg.addColorStop(1,    "rgba(0,0,0,0)");
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hs.x, hs.y, hr*6, 0, TAU); ctx.fill();
+      // o corpo, branco no miolo
+      const bg2 = ctx.createRadialGradient(hs.x - hr*0.25, hs.y - hr*0.25, 0, hs.x, hs.y, hr);
+      bg2.addColorStop(0,   "#ffffff");
+      bg2.addColorStop(0.4, "#ffd9a0");
+      bg2.addColorStop(1,   "#e2571c");
+      ctx.fillStyle = bg2;
+      ctx.beginPath(); ctx.arc(hs.x, hs.y, hr, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  /* ---------- o impacto ---------- */
+  if (blast > 0.004 || coreOpen > 0.004){
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    // clarão que lava a tela
+    if (blast > 0.004){
+      const fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W,H)*0.75);
+      fg.addColorStop(0,   `rgba(255,246,230,${blast*0.85})`);
+      fg.addColorStop(0.2, `rgba(255,190,120,${blast*0.35})`);
+      fg.addColorStop(1,   "rgba(0,0,0,0)");
+      ctx.fillStyle = fg;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // ondas de choque no plano das órbitas, por isso achatadas
+    const flat = Math.max(0.05, Math.abs(Math.sin(cam.pitch)));
+    for (let i = 0; i < 3; i++){
+      const w = clamp((coreOpen - i*0.16) / 0.8, 0, 1);
+      if (w <= 0.001 || w >= 1) continue;
+      const rr = R * (1 + w*22);
+      ctx.globalAlpha = (1 - w) * 0.5;
+      ctx.strokeStyle = i === 0 ? "rgba(255,235,205,.95)" : "rgba(150,205,255,.85)";
+      ctx.lineWidth = Math.max(1, R*0.10*(1-w));
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rr, rr*flat, 0, 0, TAU);
+      ctx.stroke();
+    }
+
+    // a fenda: o núcleo se abre num ponto branco-azulado
+    if (coreOpen > 0.01){
+      const rift = R * (0.2 + coreOpen*1.5);
+      const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, rift);
+      rg.addColorStop(0,   `rgba(255,255,255,${0.95*coreOpen})`);
+      rg.addColorStop(0.35,`rgba(180,225,255,${0.55*coreOpen})`);
+      rg.addColorStop(1,   "rgba(0,0,0,0)");
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(cx, cy, rift, 0, TAU); ctx.fill();
     }
     ctx.restore();
   }
