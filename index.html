@@ -11,6 +11,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
 
+<!-- Three.js só é baixado quando a rolagem se aproxima da rede neural.
+     Se o CDN estiver bloqueado, a seção não aparece e o resto segue. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.137.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.137.0/examples/jsm/"
+  }
+}
+</script>
+
 <style>
   /* Paleta derivada do próprio shader de abertura: brasas quentes perto do
      núcleo, azul (#4d99e6, o mesmo do "mix" final do shader) ao se afastar. */
@@ -29,6 +40,16 @@
     --font-display:"Space Grotesk","Inter","Segoe UI",system-ui,sans-serif;
   }
   *{box-sizing:border-box}
+
+  /* -- ESCALA PARA TELAO ------------------------------------------
+     Toda a tipografia deriva desta raiz, que cresce com a ALTURA da
+     tela. Antes os tamanhos tinham teto em pixel: num telao 4K o texto
+     continuava com 17px, ou seja, quanto maior a tela, menor o texto em
+     proporcao. Com rem, um painel no notebook e o mesmo painel no telao
+     ocupam a mesma fracao da tela.
+     Para calibrar no dia, abra a pagina com ?escala=1.2 (ou 0.85).   */
+  html{ font-size: clamp(15px, 1.9vh, 44px); }
+
   body{
     margin:0; background:#000; color:var(--ink);
     font-family:var(--font-body);
@@ -39,15 +60,28 @@
   canvas{position:fixed; inset:0; width:100%; height:100%; display:block}
   canvas#warp{z-index:0}
   canvas#scene{z-index:1}
+  canvas#neural{z-index:2; opacity:0; pointer-events:none}
+
+  /* etiqueta com o nome do banco sob o cursor */
+  .neural-tooltip{
+    position:fixed; z-index:6; pointer-events:none;
+    transform:translate(-50%,-165%);
+    padding:.38em .7em; border-radius:.5em;
+    background:rgba(10,6,28,.92); border:1px solid rgba(124,58,237,.55);
+    color:#f2edff; font:600 .72rem/1 var(--font-body); letter-spacing:.01em;
+    white-space:nowrap; opacity:0; transition:opacity .16s ease;
+    box-shadow:0 6px 24px rgba(0,0,0,.5);
+  }
+  .neural-tooltip.visible{opacity:1}
 
   .vignette{
-    position:fixed; inset:0; z-index:2; pointer-events:none;
+    position:fixed; inset:0; z-index:3; pointer-events:none;
     background:radial-gradient(125% 95% at 50% 45%, transparent 40%, rgba(3,6,16,.82) 100%);
   }
 
   /* ---------- overlay de texto ---------- */
-  .overlay{position:fixed; inset:0; z-index:3; pointer-events:none}
-  .panel{position:absolute; opacity:0; will-change:opacity,transform; max-width:520px}
+  .overlay{position:fixed; inset:0; z-index:4; pointer-events:none}
+  .panel{position:absolute; opacity:0; will-change:opacity,transform; max-width:27rem}
 
   /* Véu atrás do texto: escurece e desfoca o céu só onde há leitura,
      com borda esfumada para não virar uma caixa colada na tela.
@@ -68,80 +102,80 @@
   }
   .panel.hero::before{ inset:-40px -70px -46px -70px }
   .panel{ right:6vw; top:50%; transform:translateY(-50%) }
-  .panel.center{ left:50%; right:auto; top:50%; transform:translate(-50%,-50%); text-align:center; max-width:780px }
+  .panel.center{ left:50%; right:auto; top:50%; transform:translate(-50%,-50%); text-align:center; max-width:40rem }
   .panel.left{ left:6vw; right:auto }
-  .panel.hero{ left:50%; right:auto; top:auto; bottom:9vh; transform:translateX(-50%); text-align:center; max-width:860px }
+  .panel.hero{ left:50%; right:auto; top:auto; bottom:9vh; transform:translateX(-50%); text-align:center; max-width:44rem }
 
   .kicker{
-    font-size:12px; letter-spacing:.28em; text-transform:uppercase;
-    color:var(--muted); margin:0 0 14px;
+    font-size:.7rem; letter-spacing:.28em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 .85rem;
     display:flex; align-items:center; gap:10px;
   }
   .panel.center .kicker,.panel.hero .kicker{justify-content:center}
-  .kicker::before{content:""; width:26px; height:1px; background:currentColor; opacity:.6}
+  .kicker::before{content:""; width:1.6em; height:1px; background:currentColor; opacity:.6}
   .panel.center .kicker::before,.panel.hero .kicker::before{display:none}
 
   h1{
     font-family:var(--font-display);
-    font-size:clamp(32px,5.6vw,68px); line-height:1.03; margin:0 0 16px;
+    font-size:2.9rem; line-height:1.03; margin:0 0 .5em;
     font-weight:700; letter-spacing:-.03em;
     background:linear-gradient(180deg,#fff 18%,#9fb2e8 120%);
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  h2{font-family:var(--font-display); font-size:clamp(26px,3.4vw,42px); line-height:1.08;
-     margin:0 0 16px; font-weight:600; letter-spacing:-.022em}
-  p{font-size:clamp(14px,1.15vw,17px); line-height:1.65; color:#b9c3e6; margin:0 0 14px}
+  h2{font-family:var(--font-display); font-size:2rem; line-height:1.08;
+     margin:0 0 .55em; font-weight:600; letter-spacing:-.022em}
+  p{font-size:1.2rem; line-height:1.6; color:#b9c3e6; margin:0 0 .7em}
   .dim{color:var(--muted)}
 
-  ul.items{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:10px}
+  ul.items{list-style:none; padding:0; margin:1.3rem 0 0; display:grid; gap:.55rem}
   ul.items li{
-    display:flex; gap:12px; align-items:flex-start;
-    padding:12px 14px; border-radius:12px;
+    display:flex; gap:.75em; align-items:flex-start;
+    padding:.7em .85em; border-radius:.7rem;
     background:rgba(16,26,52,.55); border:1px solid rgba(140,160,230,.16);
-    backdrop-filter:blur(10px); font-size:14.5px; line-height:1.45;
+    backdrop-filter:blur(10px); font-size:1.05rem; line-height:1.45;
   }
-  ul.items li b{display:block; font-weight:600; margin-bottom:2px}
-  ul.items li span{color:var(--muted); font-size:13px}
-  .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:0 0 auto;box-shadow:0 0 12px currentColor;background:currentColor}
+  ul.items li b{display:block; font-weight:600; margin-bottom:.12em}
+  ul.items li span{color:var(--muted); font-size:.88em}
+  .dot{width:.5em;height:.5em;border-radius:50%;margin-top:.42em;flex:0 0 auto;box-shadow:0 0 .8em currentColor;background:currentColor}
 
-  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:26px}
-  .metric{padding:18px 16px; border-radius:14px; background:rgba(16,26,52,.55); border:1px solid rgba(140,160,230,.16); backdrop-filter:blur(10px)}
-  .metric .v{font-size:clamp(24px,3vw,36px); font-weight:650; letter-spacing:-.02em}
-  .metric .l{font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-top:6px}
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:.8rem; margin-top:1.5rem}
+  .metric{padding:1rem .9rem; border-radius:.8rem; background:rgba(16,26,52,.55); border:1px solid rgba(140,160,230,.16); backdrop-filter:blur(10px)}
+  .metric .v{font-size:1.85rem; font-weight:650; letter-spacing:-.02em}
+  .metric .l{font-size:.65rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-top:.4rem}
 
-  .steps{display:grid; gap:12px; margin-top:24px; text-align:left}
-  .step{display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:baseline;
-    padding:14px 16px; border-radius:12px; background:rgba(16,26,52,.55);
+  .steps{display:grid; gap:.65rem; margin-top:1.4rem; text-align:left}
+  .step{display:grid; grid-template-columns:auto 1fr; gap:.85em; align-items:baseline;
+    padding:.8em .95em; border-radius:.7rem; background:rgba(16,26,52,.55);
     border:1px solid rgba(140,160,230,.16); backdrop-filter:blur(10px)}
-  .step .n{font-variant-numeric:tabular-nums; color:var(--accent); font-weight:650; font-size:13px; letter-spacing:.1em}
-  .step b{display:block; margin-bottom:3px; font-weight:600}
-  .step span{color:var(--muted); font-size:13.5px; line-height:1.5}
+  .step .n{font-variant-numeric:tabular-nums; color:var(--accent); font-weight:650; font-size:.8rem; letter-spacing:.1em}
+  .step b{display:block; margin-bottom:.2em; font-weight:600; font-size:1.05rem}
+  .step span{color:var(--muted); font-size:.92rem; line-height:1.5}
 
   /* ---------- HUD ---------- */
-  .hud{position:fixed; z-index:5; pointer-events:none; color:var(--muted); opacity:0}
-  .brand{top:26px; left:28px; font-size:12px; letter-spacing:.24em; text-transform:uppercase}
+  .hud{position:fixed; z-index:6; pointer-events:none; color:var(--muted); opacity:0}
+  .brand{top:1.5rem; left:1.6rem; font-size:.68rem; letter-spacing:.24em; text-transform:uppercase}
   .brand b{color:var(--ink); font-weight:600}
-  .scale-readout{bottom:26px; left:28px; font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-variant-numeric:tabular-nums}
-  .hint{bottom:26px; left:50%; transform:translateX(-50%); text-align:center;
-    font-size:11px; letter-spacing:.22em; text-transform:uppercase}
+  .scale-readout{bottom:1.5rem; left:1.6rem; font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; font-variant-numeric:tabular-nums}
+  .hint{bottom:1.5rem; left:50%; transform:translateX(-50%); text-align:center;
+    font-size:.66rem; letter-spacing:.22em; text-transform:uppercase}
   .hint .arrow{display:block; margin:8px auto 0; width:1px; height:26px;
     background:linear-gradient(180deg,transparent,var(--muted)); animation:drop 1.9s ease-in-out infinite}
   @keyframes drop{0%,100%{opacity:.25;transform:translateY(-4px)}50%{opacity:1;transform:translateY(4px)}}
 
-  .rail{position:fixed; right:26px; top:50%; transform:translateY(-50%); z-index:5; display:grid; gap:12px; opacity:0; transition:opacity .6s ease}
+  .rail{position:fixed; right:1.6rem; top:50%; transform:translateY(-50%); z-index:6; display:grid; gap:12px; opacity:0; transition:opacity .6s ease}
   .rail button{-webkit-appearance:none; appearance:none; border:0; padding:0; cursor:pointer;
-    width:9px; height:9px; border-radius:50%; background:rgba(160,175,230,.22); transition:all .3s ease}
+    width:.55rem; height:.55rem; border-radius:50%; background:rgba(160,175,230,.22); transition:all .3s ease}
   .rail button.on{background:var(--accent); box-shadow:0 0 14px var(--accent); transform:scale(1.25)}
   .rail button:hover{background:rgba(160,175,230,.5)}
 
-  .bar{position:fixed; left:0; top:0; height:2px; z-index:6;
+  .bar{position:fixed; left:0; top:0; height:.16rem; z-index:7;
     background:linear-gradient(90deg,var(--c1),var(--c3),var(--c4)); width:0%}
 
   .skip{
-    position:fixed; z-index:7; right:26px; bottom:24px;
-    font:500 11px/1 var(--font-body); letter-spacing:.18em; text-transform:uppercase;
+    position:fixed; z-index:8; right:1.6rem; bottom:1.4rem;
+    font:500 .66rem/1 var(--font-body); letter-spacing:.18em; text-transform:uppercase;
     color:var(--muted); background:rgba(8,12,28,.35); border:1px solid rgba(140,160,230,.22);
-    padding:9px 14px; border-radius:999px; cursor:pointer; transition:all .3s ease;
+    padding:.55em .9em; border-radius:999px; cursor:pointer; transition:all .3s ease;
     backdrop-filter:blur(6px);
   }
   .skip:hover{color:var(--ink); border-color:rgba(140,160,230,.5)}
@@ -242,6 +276,8 @@ void main() {
 
 <canvas id="warp"></canvas>
 <canvas id="scene"></canvas>
+<canvas id="neural"></canvas>
+<div class="neural-tooltip" id="neuralTip"></div>
 <div class="vignette"></div>
 
 <div class="overlay" id="overlay">
@@ -288,43 +324,17 @@ void main() {
   </section>
 
   <!-- ============ 4 · O IMPACTO / REDE NEURAL ============
-       0.605 a 0.700 é a queda do meteoro — de propósito sem texto,
+       0.555 a 0.645 é a queda do meteoro — de propósito sem texto,
        para a animação respirar. O painel entra depois do baque. -->
-  <section class="panel center" data-from="0.735" data-to="0.835">
+  <section class="panel" data-from="0.685" data-to="0.795">
     <p class="kicker">O que se abre no impacto</p>
-    <h2>A rede neural</h2>
-    <p class="dim">Aqui entra o componente <code>neural-bank</code> — 185 instituições
-       conectadas ao núcleo, em Three.js. Por enquanto este é só o marcador:
-       a animação do meteoro é que está em teste.</p>
-  </section>
-
-  <!-- ============ 5 · NÚMEROS ============ -->
-  <section class="panel center" data-from="0.855" data-to="0.915">
-    <p class="kicker">Resultado</p>
-    <h2>O que isso já significa</h2>
-    <div class="metrics">
-      <div class="metric"><div class="v" style="color:var(--c1)">00 mil</div><div class="l">Documentos / mês</div></div>
-      <div class="metric"><div class="v" style="color:var(--c3)">00 %</div><div class="l">Automação</div></div>
-      <div class="metric"><div class="v" style="color:var(--c4)">00 h</div><div class="l">Horas devolvidas</div></div>
-    </div>
-    <p class="dim" style="margin-top:20px">Substitua pelos números reais — cada card é um bloco <code>.metric</code>.</p>
-  </section>
-
-  <!-- ============ 5 · PRÓXIMOS PASSOS ============ -->
-  <section class="panel center" data-from="0.92" data-to="0.965">
-    <p class="kicker">A seguir</p>
-    <h2>Para onde o sistema cresce</h2>
-    <div class="steps">
-      <div class="step"><span class="n">01</span><div><b>Título do próximo passo</b><span>Uma linha explicando o ganho concreto para a operação.</span></div></div>
-      <div class="step"><span class="n">02</span><div><b>Título do próximo passo</b><span>Uma linha explicando o ganho concreto para a operação.</span></div></div>
-      <div class="step"><span class="n">03</span><div><b>Título do próximo passo</b><span>Uma linha explicando o ganho concreto para a operação.</span></div></div>
-    </div>
-  </section>
-
-  <!-- ============ 6 · FECHAMENTO ============ -->
-  <section class="panel center" data-from="0.972" data-to="1.01">
-    <h1 style="font-size:clamp(28px,4.6vw,56px)">Um núcleo.<br>Todo o resto orbita.</h1>
-    <p class="dim">Seu nome · Time · Data da apresentação</p>
+    <h2>Uma rede, não uma lista</h2>
+    <p>Cada instituição é um nó ligado ao núcleo e aos vizinhos. Continue
+       rolando: a rede se afasta e as camadas mais distantes aparecem.</p>
+    <ul class="items">
+      <li><i class="dot" style="color:#a78bfa"></i><div><b>184 instituições</b><span>Bancos, cooperativas, fintechs e meios de pagamento.</span></div></li>
+      <li><i class="dot" style="color:#a78bfa"></i><div><b>Passe o mouse</b><span>Cada nó mostra o nome; arraste para girar a rede.</span></div></li>
+    </ul>
   </section>
 
 </div>
@@ -337,7 +347,7 @@ void main() {
 <button class="skip" id="skip" type="button">Pular introdução</button>
 
 <!-- altura de rolagem: é isto que "dirige" a animação -->
-<div id="scroller" style="height:1150vh"></div>
+<div id="scroller" style="height:1000vh"></div>
 
 <script>
 (() => {
@@ -426,22 +436,29 @@ const T_BUILD   = 8.8;
 const T_UI      = 9.4;
 
 /* Zoom: em cada ponto da rolagem, qual raio deve caber na tela.
-   Depois da camada externa a curva INVERTE: a câmera mergulha de volta
+   Logo depois da camada 3 a curva INVERTE: a câmera mergulha de volta
    para perto do núcleo, senão o meteoro acertaria um ponto minúsculo. */
 const ZOOM_KEYS = [
   [0.00,  430], [0.10,  430],
   [0.22,  430], [0.30, 1150],
   [0.36, 1150], [0.44, 2450],
-  [0.50, 2450], [0.57, 5000],
-  [0.60, 5000],
-  [0.70,  450],   // mergulho, acompanhando a queda do meteoro
-  [0.84,  450],   // segura perto enquanto a rede neural abre
-  [1.00, 2400],
+  [0.55, 2450],   // fim da camada 3
+  [0.645, 450],   // mergulho, acompanhando a queda do meteoro
+  [1.00,  450],   // fica perto: daqui em diante quem ocupa a tela é a rede
 ];
 
-/* --- meteoro --- */
-const METEOR_IN  = 0.605;   // entra em quadro
-const METEOR_HIT = 0.700;   // impacto no núcleo
+/* --- rede neural: emerge da fenda aberta pelo meteoro e é o final ---
+   Ela entra logo depois do impacto e não sai mais: a apresentação termina
+   com a rede completa na tela. A distância da câmera vai de perto (só o
+   núcleo e a primeira camada) a longe (as quatro, 184 instituições). */
+const NEURAL_IN    = 0.660;
+const NEURAL_FULL  = 0.720;
+const NEURAL_GROW  = [0.700, 0.950];   // trecho em que a rede se expande
+const NEURAL_DIST  = [30, 108];        // distância da câmera: início -> fim
+
+/* --- meteoro: começa assim que a camada 3 termina --- */
+const METEOR_IN  = 0.555;   // entra em quadro
+const METEOR_HIT = 0.645;   // impacto no núcleo
 const METEOR_DIR = (() => {  // de onde ele vem (normalizado)
   const v = { x:-0.72, y:0.56, z:-0.41 };
   const L = Math.hypot(v.x, v.y, v.z);
@@ -471,6 +488,25 @@ const panels = [...document.querySelectorAll(".panel")].map(el => ({
   el, from:parseFloat(el.dataset.from), to:parseFloat(el.dataset.to)
 }));
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ── calibragem no local ──
+   ?escala=1.2 aumenta tudo 20%; ?escala=0.85 reduz. Serve para acertar
+   a leitura no telão sem mexer no código na hora do evento. */
+const UI_SCALE = (() => {
+  const v = parseFloat(new URLSearchParams(location.search).get("escala"));
+  return (isFinite(v) && v > 0.4 && v < 3) ? v : 1;
+})();
+if (UI_SCALE !== 1){
+  const base = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  document.documentElement.style.fontSize = (base * UI_SCALE) + "px";
+}
+/* px por rem — os rótulos desenhados no canvas seguem a mesma escala do
+   texto em HTML, senão no telão eles ficariam microscópicos. */
+let REM = 16;
+function readRem(){
+  REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+}
+readRem();
 
 const lerp   = (a,b,t) => a + (b-a)*t;
 const clamp  = (v,a,b) => v < a ? a : v > b ? b : v;
@@ -579,6 +615,29 @@ if (!reduced){
 
 /* fixo para toda a sessão: define qual roteiro de introdução vale */
 const HAD_GL = GL_ON;
+
+/* ══════════════════════════════════════════════════════════════
+   Rede neural (Three.js, carregada sob demanda)
+   ══════════════════════════════════════════════════════════════ */
+const neuralCv = document.getElementById("neural");
+let neural = null, neuralLoading = false, neuralFailed = false;
+let neuralW = 0, neuralH = 0;
+
+function ensureNeural(){
+  if (neural || neuralLoading || neuralFailed || reduced) return;
+  neuralLoading = true;
+  import("./neural.js")
+    .then(mod => {
+      neural = mod.createNeural(neuralCv, document.getElementById("neuralTip"));
+      neuralW = neuralH = 0;                 // força o primeiro resize
+      console.info("[neural] pronto —", neural.nodeCount, "instituições");
+    })
+    .catch(err => {
+      neuralFailed = true;
+      console.warn("[neural] não carregou (Three.js indisponível?):", err);
+    })
+    .finally(() => { neuralLoading = false; });
+}
 
 /* ── a esfera do shader vira o corpo do núcleo ──
    No repouso (settle=1, câmera em z=-7.6) ela fica centrada com raio
@@ -952,11 +1011,18 @@ function buildSky(){
 }
 
 function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth; H = window.innerHeight;
+  /* Teto de pixels da cena 2D. Num telão 4K o canvas teria 8,3 milhões de
+     pixels, e aqui se desenha muito gradiente por frame — cairia o quadro
+     justamente no telão. Abaixo do teto, nada muda. */
+  const TETO_2D = 4.2e6;
+  let sc = Math.min(window.devicePixelRatio || 1, 2);
+  if (W*H*sc*sc > TETO_2D) sc = Math.sqrt(TETO_2D / (W*H));
+  DPR = clamp(sc, 0.65, 2);
   cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
   cv.style.width = W+"px"; cv.style.height = H+"px";
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  readRem();
   buildStars();
   buildSky();
   resizeGL();
@@ -1019,6 +1085,21 @@ panels.forEach((pn, i) => {
   railEl.appendChild(b);
 });
 const dots = [...railEl.children];
+
+/* A navegação é só pela rolagem. Sem captura de teclado: assim as teclas
+   de rolagem do navegador (setas, espaço, PageDown) seguem funcionando do
+   jeito nativo, como um atalho a mais, sem competir com o mouse. */
+
+/* cursor some sozinho — num telão, uma seta parada no meio da tela
+   fica evidente e não some sem alguém lembrar de tirar o mouse */
+let cursorTimer = 0;
+function wakeCursor(){
+  document.body.style.cursor = "";
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => { document.body.style.cursor = "none"; }, 2600);
+}
+addEventListener("mousemove", wakeCursor, { passive:true });
+wakeCursor();
 
 /* Caixa de cada painel em pixels — usada para suprimir os rótulos do
    canvas que ficariam atrás do texto. Medida sob demanda e guardada em
@@ -1195,13 +1276,18 @@ function frame(now){
 
   const glLive = renderer !== null;
 
+  /* Quanto da rede neural está na tela. Calculado aqui em cima porque o
+     sistema solar inteiro se apaga na mesma medida — só ele, não o céu. */
+  const neuralA = ss(NEURAL_IN, NEURAL_FULL, p);
+  const systemA = 1 - neuralA;
+
   /* ---------- linha do tempo da introdução ----------
      Usa HAD_GL (fixo), não glLive: desligar a GPU no meio do crossfade
      não pode reescrever a linha do tempo e causar saltos. */
   const settle   = ss(T_WARP*0.45, T_BRAKE, introT);
   const warp2d   = HAD_GL ? 0 : 1 - ss(T_WARP*0.42, T_BRAKE, introT);
   const bgAlpha  = HAD_GL ? ss(T_HANDOFF, T_HANDOFF + 1.0, introT) : 1;
-  const coreA    = HAD_GL ? ss(T_HANDOFF - 0.15, T_HANDOFF + 0.75, introT) : 1;
+  const coreA    = (HAD_GL ? ss(T_HANDOFF - 0.15, T_HANDOFF + 0.75, introT) : 1) * systemA;
   const arrive   = HAD_GL ? 1 : ss(T_WARP*0.55, T_BRAKE + 0.4, introT);
   const zoomK    = HAD_GL ? ss(T_HANDOFF + 0.4, T_BUILD, introT)
                           : ss(T_WARP*0.55, T_BRAKE + 0.4, introT);
@@ -1300,8 +1386,34 @@ function frame(now){
   const blast   = hitT * (1 - ss(METEOR_HIT + 0.008, METEOR_HIT + 0.085, p));
   const coreOpen= ss(METEOR_HIT, METEOR_HIT + 0.055, p);
 
+  /* ---------- rede neural ----------
+     Começa a baixar Three.js bem antes de precisar: a rolagem não pode
+     chegar na seção e encontrar tela preta esperando download. */
+  if (p > 0.34) ensureNeural();
+  if (neural){
+    if (neuralA > 0.004){
+      if (neuralW !== W || neuralH !== H){
+        neuralW = W; neuralH = H;
+        // em pixels de CSS: quem multiplica pelo devicePixelRatio é o
+        // setPixelRatio do renderer, e fazer os dois dobraria o buffer
+        neural.resize(W, H);
+      }
+      const grow = ss(NEURAL_GROW[0], NEURAL_GROW[1], p);
+      neural.setDistance(lerp(NEURAL_DIST[0], NEURAL_DIST[1], grow));
+      neural.render();
+    }
+    neuralCv.style.opacity = neuralA;
+    // só aceita mouse quando está de fato na frente, senão rouba o hover
+    neuralCv.style.pointerEvents = neuralA > 0.85 ? "auto" : "none";
+  }
+  /* O sistema fica deslocado à esquerda enquanto há texto à direita, mas
+     volta ao centro durante a queda do meteoro: a medalha da rede nasce
+     no meio da tela, e é ali que as duas cenas precisam se encontrar.
+     A volta termina exatamente no impacto. */
   const wide = W > 900;
-  const shiftK = wide ? smooth(clamp((p-0.08)/0.14,0,1)) : 0;
+  const shiftK = wide
+    ? smooth(clamp((p-0.08)/0.14, 0, 1)) * (1 - ss(METEOR_IN, METEOR_HIT, p))
+    : 0;
   // o tranco do impacto sacode a câmera inteira
   const shake = blast * 20;
   cam.ox = W*0.5 - shiftK * W*0.16 + Math.sin((p - METEOR_HIT)*1100) * shake;
@@ -1400,8 +1512,8 @@ function frame(now){
 
     // brilho difuso do próprio núcleo iluminando o gás em volta
     const halo = ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*0.5);
-    halo.addColorStop(0,   `rgba(77,153,230,${(0.07 + 0.06*arrive)*bgAlpha})`);
-    halo.addColorStop(0.35,`rgba(60,110,190,${0.03*bgAlpha})`);
+    halo.addColorStop(0,   `rgba(77,153,230,${(0.07 + 0.06*arrive)*bgAlpha*systemA})`);
+    halo.addColorStop(0.35,`rgba(60,110,190,${0.03*bgAlpha*systemA})`);
     halo.addColorStop(1,   "rgba(0,0,0,0)");
     ctx.fillStyle = halo;
     ctx.fillRect(0,0,W,H);
@@ -1410,7 +1522,7 @@ function frame(now){
   /* ---------- disco galáctico ----------
      Entra conforme a câmera recua: invisível na camada 1 (visR≈430),
      já presente na camada 2 (visR≈1150). */
-  const galA = ss(470, 1350, visR) * bgAlpha;
+  const galA = ss(470, 1350, visR) * bgAlpha * (1 - neuralA*0.65);
   if (galA > 0.012){
     const flat = Math.max(0.05, Math.abs(Math.sin(cam.pitch)));
 
@@ -1518,7 +1630,7 @@ function frame(now){
     const reveal = ringReveal[ri];
     if (reveal <= 0.004) continue;
 
-    const vis = clamp((rs - 9)/60, 0, 1) * reveal * stagger;
+    const vis = clamp((rs - 9)/60, 0, 1) * reveal * stagger * systemA;
     if (vis <= 0.004) continue;
 
     // a órbita se desenha progressivamente durante a construção
@@ -1839,15 +1951,15 @@ function frame(now){
   }
 
   /* ---------- o impacto ---------- */
-  if (blast > 0.004 || coreOpen > 0.004){
+  if ((blast > 0.004 || coreOpen > 0.004) && systemA > 0.004){
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
 
     // clarão que lava a tela
     if (blast > 0.004){
       const fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W,H)*0.75);
-      fg.addColorStop(0,   `rgba(255,246,230,${blast*0.85})`);
-      fg.addColorStop(0.2, `rgba(255,190,120,${blast*0.35})`);
+      fg.addColorStop(0,   `rgba(255,246,230,${blast*0.85*systemA})`);
+      fg.addColorStop(0.2, `rgba(255,190,120,${blast*0.35*systemA})`);
       fg.addColorStop(1,   "rgba(0,0,0,0)");
       ctx.fillStyle = fg;
       ctx.fillRect(0,0,W,H);
@@ -1859,7 +1971,7 @@ function frame(now){
       const w = clamp((coreOpen - i*0.16) / 0.8, 0, 1);
       if (w <= 0.001 || w >= 1) continue;
       const rr = R * (1 + w*22);
-      ctx.globalAlpha = (1 - w) * 0.5;
+      ctx.globalAlpha = (1 - w) * 0.5 * systemA;
       ctx.strokeStyle = i === 0 ? "rgba(255,235,205,.95)" : "rgba(150,205,255,.85)";
       ctx.lineWidth = Math.max(1, R*0.10*(1-w));
       ctx.beginPath();
@@ -1869,10 +1981,12 @@ function frame(now){
 
     // a fenda: o núcleo se abre num ponto branco-azulado
     if (coreOpen > 0.01){
-      const rift = R * (0.2 + coreOpen*1.5);
+      // cresce até encostar no tamanho da medalha da rede, para a
+      // passagem de uma cena para a outra acontecer dentro do clarão
+      const rift = R * (0.2 + coreOpen*1.9);
       const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, rift);
-      rg.addColorStop(0,   `rgba(255,255,255,${0.95*coreOpen})`);
-      rg.addColorStop(0.35,`rgba(180,225,255,${0.55*coreOpen})`);
+      rg.addColorStop(0,   `rgba(255,255,255,${0.95*coreOpen*systemA})`);
+      rg.addColorStop(0.35,`rgba(180,225,255,${0.55*coreOpen*systemA})`);
       rg.addColorStop(1,   "rgba(0,0,0,0)");
       ctx.globalAlpha = 1;
       ctx.fillStyle = rg;
@@ -1941,7 +2055,7 @@ function frame(now){
   /* ---------- rótulos (sempre por cima, em espaço de tela) ---------- */
   if (labels.length){
     ctx.save();
-    ctx.font = "500 12px 'Inter','Segoe UI',system-ui,sans-serif";
+    ctx.font = "500 " + (REM*0.66).toFixed(0) + "px 'Inter','Segoe UI',system-ui,sans-serif";
     ctx.shadowColor = "rgba(2,5,14,.95)"; ctx.shadowBlur = 9;
 
     /* Os mais próximos da câmera têm prioridade; quem chegar depois e
@@ -1949,7 +2063,7 @@ function frame(now){
        que entregar dois nomes embolados e ilegíveis. */
     labels.sort((A,B) => A.z - B.z);
     const placed = [];
-    const LH = 15;
+    const LH = REM*0.95;
     for (const L of labels){
       if (textBox && L.x > textBox.l && L.x < textBox.r
                   && L.y > textBox.t && L.y < textBox.b) continue;
@@ -1977,7 +2091,7 @@ function frame(now){
   if (coreA > 0.1 && R > 14 && build > 0.3){
     ctx.save();
     ctx.globalAlpha = coreA * ss(0.3,0.75,build) * 0.95;
-    ctx.font = "600 " + Math.round(clamp(R*0.20, 10, 15)) + "px 'Inter','Segoe UI',system-ui,sans-serif";
+    ctx.font = "600 " + Math.round(clamp(R*0.20, REM*0.55, REM*0.9)) + "px 'Inter','Segoe UI',system-ui,sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillStyle = "rgba(238,247,255,.95)";
     ctx.shadowColor = "rgba(2,5,14,.95)"; ctx.shadowBlur = 10;

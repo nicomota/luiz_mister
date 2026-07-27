@@ -18,11 +18,19 @@ Para hospedar em outro lugar, basta servir a pasta como site estático
 ## Estrutura
 
 ```
-index.html          toda a página: estilos, shader e animação
+index.html          a página: estilos, shader de abertura e o sistema solar
+neural.js           a rede neural em Three.js, carregada sob demanda
+neural-data.js      camadas e nomes da rede (gerado — veja abaixo)
 logo.png            logo exibida dentro da esfera central
 img/                logos dos buscadores de notas e das instituições financeiras
 img/erp/            logos dos sistemas contábeis
+img/banks/          logos das 184 instituições da rede neural
 ```
+
+O `index.html` não depende de nada para funcionar. O `neural.js` depende de
+Three.js, que vem de CDN e só é baixado quando a rolagem passa de 34% — se o
+CDN estiver bloqueado, aquela seção não aparece e o resto da página segue
+normalmente.
 
 ## As camadas
 
@@ -36,6 +44,22 @@ img/erp/            logos dos sistemas contábeis
 
 Cada camada só aparece quando a câmera recua o bastante para enquadrá-la, então
 a rolagem revela o ecossistema de dentro para fora.
+
+Depois da camada 3 a curva de zoom inverte: um meteoro cai, a câmera mergulha
+de volta ao núcleo e o impacto abre a rede neural.
+
+## A rede neural
+
+Porte do componente Angular `neural-bank` (projeto mistercontador) para
+JavaScript puro. A cena é a mesma — medalha central, nós distribuídos por
+espiral de Fibonacci, conexões aos vizinhos, batimento periódico. O que mudou:
+saiu o Angular, e a distância da câmera passou a vir da rolagem da página em
+vez da roda do mouse. As camadas continuam surgindo conforme a câmera se
+afasta, como no original.
+
+Para regenerar `neural-data.js` a partir do componente original, extraia
+`nameMap` e `bankTiers` do `.ts` e remapeie os caminhos de `assets/img/` para
+`img/banks/`.
 
 ## Onde editar
 
